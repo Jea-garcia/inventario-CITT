@@ -1,223 +1,154 @@
-📦 Inventario Digital — Almendro Inversiones Ltda.
+Inventario Digital - Almendro Inversiones Ltda.
 
-Proyecto Capstone 2026-2 — Incubadora
+Proyecto Capstone 2026-2 - Incubadora.
 
-Sistema web para la gestión y control del inventario del Hotel Almendro Inversiones Ltda.
+Aplicación móvil de uso interno para la gestión, control y trazabilidad en tiempo real del inventario de insumos. El sistema centraliza la información de productos e insumos, permitiendo registrar ingresos, salidas y mermas, consultar el stock disponible y mantener la trazabilidad operativa.
 
-👥 Integrantes
+Integrantes del Equipo
+ARIANETTE PAVEZ - Líder
+TANIA GAETE - Integrante
+JEAN GARCIA - Integrante
 
-- ARIANETTE PAVEZ — Líder
-- TANIA GAETE — Integrante
-- JEAN GARCIA — Integrante
+Objetivos del Proyecto
+Objetivo General
+Desarrollar una aplicación móvil interna y un sistema digital que permita gestionar de manera centralizada el inventario de insumos, facilitando el control de existencias, vencimientos y movimientos.
 
-🏨 Descripción del Proyecto
+Objetivos Específicos
+Digitalizar la gestión y el registro de productos e insumos de cocina.
+Mantener actualizado el stock disponible en tiempo real.
+Registrar operaciones directas de inventario: ingresos (agregar), salidas (sacar) y mermas (merma).
+Gestionar alertas tempranas de vencimiento mediante un sistema de semaforización.
+Registrar e identificar productos sin código de barras.
+Vincular la ubicación física en bodega y estantes con la base de datos.
+Consultar el historial de movimientos y reportes de inventario.
 
-Inventario Digital es una solución web orientada a digitalizar y mejorar la gestión del inventario del Hotel Almendro Inversiones Ltda.
+Funcionalidades Principales
+Gestión de Inventario y Operaciones de Bodega
+Registro, consulta y control de productos e insumos de alimentación.
+Control de existencias, stock mínimo e identificación de productos con bajo stock.
+Registro de ingresos (agregar): incorporación directa de insumos a la bodega.
+Registro de salidas (sacar): retiro de insumos para preparación de alimentos y recetas.
+Registro y clasificación de mermas (merma): control de pérdidas por vencimiento, daño o deterioro.
+Registro de fecha, cantidad y observaciones de cada movimiento.
+Identificación y mapeo de productos sin código de barras.
+Control de ubicación física en estantes de bodega y cocina.
 
-El sistema permitirá centralizar la información de productos e insumos, registrar entradas y salidas, consultar el stock disponible y mantener un historial de los movimientos realizados.
+Sistema de Semaforización y Alertas
+Verde: Insumo fresco o con fecha de vencimiento lejana.
+Amarillo: Insumo en ventana de atención (priorizar uso en cocina).
+Rojo: Insumo crítico o vencido (retirar de bodega y registrar merma).
 
-La solución busca reducir errores asociados al registro manual, mejorar la trazabilidad y facilitar el acceso a información actualizada para la gestión del inventario.
+Historial y Reportes
+Historial unificado de movimientos (ingresos, salidas y mermas).
+Dashboard con resúmenes de inventario, stock crítico y métricas de consumo.
 
-🎯 Objetivo General
+Arquitectura del Sistema (Monorepo)
+El proyecto está estructurado bajo un esquema de monorepo utilizando arquitectura de microservicios en el backend para permitir la modificabilidad y escalabilidad futura de cada módulo sin afectar la totalidad de la aplicación.
+                     ┌────────────────────────┐
+                     │    Aplicación Móvil    │
+                     │   (iOS / Android UI)   │
+                     └───────────┬────────────┘
+                                 │ API Rest / Gateway
+   ┌───────────────────┬────────────────┴┬────────────────┬────────────────┐
+   ▼                   ▼                 ▼                ▼                ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│  inventory-  │ │  movement-   │ │    waste-    │ │    alert-    │ │   barcode-   │
+│   service    │ │   service    │ │   service    │ │   service    │ │   service    │
+└──────┬───────┘ └──────┬───────┘ └──────┬───────┘ └──────┬───────┘ └──────┬───────┘
+       │                │                │                │                │
+       └────────────────┴───────────────┬┴────────────────┴────────────────┘
+                                        ▼
+                    ┌────────────────────────┐
+                    │ Base de Datos          │
+                    └────────────────────────┘
 
-Desarrollar un sistema digital que permita gestionar de manera centralizada el inventario del Hotel Almendro Inversiones Ltda., facilitando el control de productos, existencias y movimientos.
 
-🎯 Objetivos Específicos
 
-- Digitalizar el registro de productos e insumos.
-- Mantener actualizado el stock disponible.
-- Registrar entradas y salidas de inventario.
-- Consultar el historial de movimientos.
-- Identificar productos con stock bajo.
-- Facilitar la consulta de información del inventario.
-- Controlar el acceso de los usuarios según sus permisos.
-- Mejorar la trazabilidad de las operaciones.
 
-📦 Funcionalidades Principales
 
-Gestión de inventario
-
-- Registro de productos e insumos.
-- Consulta de productos.
-- Control de stock.
-- Control de stock mínimo.
-- Identificación de productos con bajo stock.
-
-Entradas y salidas
-
-- Registro de entradas de productos.
-- Registro de salidas de productos.
-- Fecha y cantidad de la operación.
-- Usuario responsable.
-- Observaciones.
-
-Movimientos
-
-- Historial de movimientos.
-- Diferenciación entre entradas y salidas.
-- Consulta por producto y fecha.
-- Registro del usuario responsable.
-
-Usuarios
-
-- Inicio de sesión.
-- Gestión de usuarios.
-- Roles y permisos de acceso.
-
-Dashboard y reportes
-
-- Resumen del inventario.
-- Productos con stock bajo.
-- Productos sin stock.
-- Resumen de movimientos.
-
-👤 Usuarios del Sistema
-
-El sistema contempla inicialmente los siguientes perfiles:
-
-Perfil| Descripción
-Administrador| Gestiona usuarios, productos e inventario.
-Recepcionista| Consulta información y registra operaciones autorizadas.
-Mantención| Consulta y registra operaciones relacionadas con sus funciones.
-
-Los permisos definitivos serán establecidos durante el levantamiento y validación de requerimientos.
-
-🏗️ Arquitectura
-
-El proyecto contempla inicialmente una arquitectura basada en microservicios, buscando separar las principales funcionalidades del sistema en servicios independientes.
-
-Microservicios propuestos
-
-                 ┌─────────────────┐
-                 │    FRONTEND     │
-                 │ Inventario Web  │
-                 └────────┬────────┘
-                          │
-                          ▼
-                 ┌─────────────────┐
-                 │   API GATEWAY   │
-                 └────────┬────────┘
-                          │
-          ┌───────────────┼───────────────┐
-          ▼               ▼               ▼
-   ┌────────────┐  ┌────────────┐  ┌────────────┐
-   │    AUTH    │  │ INVENTARIO │  │ MOVIMIENTOS│
-   │  SERVICE   │  │  SERVICE   │  │  SERVICE   │
-   └────────────┘  └────────────┘  └────────────┘
-                          │
-                          ▼
-                   ┌────────────┐
-                   │  REPORTES  │
-                   │  SERVICE   │
-                   └────────────┘
-
-La distribución definitiva de los servicios podrá ajustarse durante el desarrollo según los requerimientos técnicos y las decisiones de arquitectura del proyecto.
-
-🚀 Metodología
-
-El proyecto será desarrollado utilizando una metodología Ágil — Scrum.
-
-El trabajo se organizará mediante Sprints, permitiendo realizar planificación, desarrollo, pruebas, revisión y mejora continua.
-
-Acta de Kick-Off
-
-- Proyecto: Inventario Digital
-- Empresa: Almendro Inversiones Ltda.
-- Fecha: 25 de agosto de 2026
-- Metodología: Scrum
-- Duración estimada de Sprint: 2 semanas
-- Objetivo inicial: Digitalizar el control del inventario y reducir errores asociados a procesos manuales.
-
-🖥️ Prototipo
-
-El diseño inicial de la solución será desarrollado mediante mockups, los cuales serán validados con la contraparte durante el desarrollo del proyecto.
-
-Las principales pantallas contempladas inicialmente son:
-
-- Login.
-- Dashboard.
-- Inventario.
-- Productos.
-- Entradas.
-- Salidas.
-- Movimientos.
-- Usuarios.
-- Reportes.
-
-🛠️ Tecnologías
-
-Las tecnologías definitivas serán establecidas durante la etapa de diseño técnico.
-
-Inicialmente se contempla:
-
-- Frontend web.
-- Backend basado en microservicios.
-- APIs para comunicación entre componentes.
-- Base de datos.
-- Git y GitHub.
-- Docker para el despliegue de los servicios.
-
-📂 Estructura del Repositorio
-
+Estructura del Repositorio
 inventario-digital/
 │
-├── docs/
+├── docs/               Documentación de requerimientos, arquitectura, diagramas y mockups
 │   ├── requerimientos/
 │   ├── arquitectura/
 │   ├── diagramas/
 │   ├── mockups/
 │   └── metodologia/
 │
-├── frontend/
+├── mobile-app/                 Código fuente de la aplicación móvil de uso interno
 │
-├── services/
-│   ├── auth-service/
-│   ├── inventory-service/
-│   ├── movement-service/
-│   └── report-service/
+├── microservices/              Servicios del backend en microservicios
+│   ├── purchase-service/       Gestión y registro de compras (Recepcionista)
+│   ├── inventory-service/      Consulta de existencias y catálogo de productos
+│   ├── movement-service/       Gestión de entradas (agregar) y salidas (sacar)
+│   ├── waste-service/          Gestión y clasificación de mermas (merma)
+│   ├── alert-service/          Semaforización y avisos de vencimiento
+│   └── barcode-service/        Registro e identificación de productos sin código
 │
-├── docker-compose.yml
-│
-└── README.md
+├── database/                   Esquemas, scripts y migraciones de la base de datos
+├── docker-compose.yml          Orquestación de servicios locales
+└── README.md                   Documentación principal del proyecto
 
-📌 Estado del Proyecto
 
-Estado: 🟡 En desarrollo
 
-- [x] Definición inicial del proyecto
-- [x] Definición del equipo
-- [x] Acta de Kick-Off
-- [x] Definición de metodología
-- [ ] Levantamiento y validación de requerimientos
-- [ ] Diseño del prototipo
-- [ ] Diseño de arquitectura
-- [ ] Diseño de base de datos
-- [ ] Desarrollo de microservicios
-- [ ] Desarrollo del frontend
-- [ ] Integración de componentes
-- [ ] Pruebas
-- [ ] Documentación final
-- [ ] Presentación Capstone
 
-📄 Documentación
+Metodología y Acta de Kick-Off
+El proyecto se desarrolla bajo la metodología Ágil - Scrum organizada en Sprints de 2 semanas.
+Proyecto: Inventario Digital
+Empresa: Almendro Inversiones Ltda
+Fecha de Inicio: 25 de agosto de 2026
+Metodología: Scrum
+Duración de Sprint: 2 semanas
+Objetivo Inicial: Digitalizar el control del inventario y reducir errores asociados a procesos manuales
 
-La documentación complementaria del proyecto se encuentra en la carpeta "/docs".
+Tecnologías
+Aplicación Móvil: Desarrollo móvil multiplataforma para uso interno privado
+Backend: Microservicios con API Gateway y APIs REST
+Base de Datos: Relacional / NoSQL según la necesidad del servicio
+Despliegue y Control: Docker, Docker Compose, Git y GitHub
 
-En ella se incorporarán los documentos correspondientes a:
 
-- Requerimientos.
-- Arquitectura.
-- Diagramas UML.
-- Mockups.
-- Metodología.
-- Pruebas.
-- Evidencias.
-- Documentación final.
+Estado del Proyecto
+Estado: En desarrollo
+Definición inicial del proyecto
+Definición del equipo
+Acta de Kick-Off
+Definición de metodología
+Levantamiento y validación de requerimientos
+Diseño del prototipo
+Diseño de arquitectura
+Diseño de base de datos
+Desarrollo de microservicios
+Desarrollo de la aplicación móvil
+Integración de componentes
+Pruebas
+Documentación final
+Presentación Capstone
 
----
+Instalación y Configuración Local
+Bash
+# 1. Clonar el repositorio
+git clone https://github.com/Jea-garcia/inventario-digital.git
 
-Capstone 2026-2 — Incubadora
 
-Inventario Digital — Almendro Inversiones Ltda.
+# 2. Acceder al directorio
+cd inventario-digital
 
-ARIANETTE PAVEZ · TANIA GAETE · JEAN GARCIA
+
+# 3. Configurar variables de entorno
+cp .env.example .env
+
+
+# 4. Levantar servicios locales con Docker
+docker compose up -d
+
+
+
+Documentación Adicional
+La documentación complementaria técnica y operativa se encuentra en la carpeta /docs:
+Requerimientos técnicos y funcionales
+Arquitectura del sistema y flujo de datos
+Diagramas UML y modelos de base de datos
+Mockups y prototipos de la interfaz móvil
+Sistema de Semaforización y Alertas Tempranas
