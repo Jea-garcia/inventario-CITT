@@ -21,6 +21,9 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>('STOCK');
   const [activeRole, setActiveRole] = useState<UserRole>('ADMINISTRADOR');
 
+  // Estado para menú hamburguesa móvil
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   // Solicitudes
   const [solicitudes, setSolicitudes] = useState<SolicitudLocal[]>([]);
   const [requestItem, setRequestItem] = useState<Item | null>(null);
@@ -34,7 +37,7 @@ export default function Home() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('TODOS');
 
-  // Formularios y Modales
+  // Formulario con Descripción/Comentario reincorporado
   const [form, setForm] = useState({
     nombre: '',
     codigoSerie: '',
@@ -43,7 +46,7 @@ export default function Home() {
     estado: 'DISPONIBLE' as Item['estado'],
     descripcion: '',
     esConsumible: false,
-    cantidadGramos: 10000, // 10 kg por defecto si es consumible
+    cantidadGramos: 10000,
   });
 
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -108,7 +111,6 @@ export default function Home() {
     }
   };
 
-  // Descuento automático de gramos de Filamento 3D (Regla de negocio)
   const handleDiscountFilament = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!filamentItem || descuentoGramos <= 0) return;
@@ -117,9 +119,7 @@ export default function Home() {
     const nuevoStockGramos = Math.max(0, actualGramos - descuentoGramos);
 
     try {
-      await updateItem(filamentItem.id, {
-        cantidadGramos: nuevoStockGramos,
-      });
+      await updateItem(filamentItem.id, { cantidadGramos: nuevoStockGramos });
       setFilamentItem(null);
       setDescuentoGramos(50);
       loadItems();
@@ -129,7 +129,6 @@ export default function Home() {
     }
   };
 
-  // Préstamo y Devolución
   const handleConfirmLoan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loanItem || !prestadoAInput.trim()) return;
@@ -157,7 +156,6 @@ export default function Home() {
     }
   };
 
-  // Solicitudes
   const handleCreateRequest = (e: React.FormEvent) => {
     e.preventDefault();
     if (!requestItem || !solicitanteInput.trim()) return;
@@ -190,10 +188,17 @@ export default function Home() {
     }
   };
 
-  // Exportar CSV
   const handleExportCSV = () => {
-    const headers = ['Codigo', 'Nombre', 'Categoria', 'Ubicacion', 'Estado', 'Asignado A'];
-    const rows = filteredItems.map((i) => [`"${i.codigoSerie}"`, `"${i.nombre}"`, `"${i.categoria}"`, `"${i.ubicacion}"`, `"${i.estado}"`, `"${i.prestadoA || 'N/A'}"`]);
+    const headers = ['Codigo', 'Nombre', 'Categoria', 'Ubicacion', 'Estado', 'Comentario', 'Asignado A'];
+    const rows = filteredItems.map((i) => [
+      `"${i.codigoSerie}"`,
+      `"${i.nombre}"`,
+      `"${i.categoria}"`,
+      `"${i.ubicacion}"`,
+      `"${i.estado}"`,
+      `"${i.descripcion || ''}"`,
+      `"${i.prestadoA || 'N/A'}"`
+    ]);
     const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const link = document.createElement('a');
     link.href = encodeURI(csvContent);
@@ -205,27 +210,41 @@ export default function Home() {
     const matchesSearch =
       item.nombre.toLowerCase().includes(search.toLowerCase()) ||
       item.codigoSerie.toLowerCase().includes(search.toLowerCase()) ||
-      item.categoria.toLowerCase().includes(search.toLowerCase());
+      item.categoria.toLowerCase().includes(search.toLowerCase()) ||
+      (item.descripcion && item.descripcion.toLowerCase().includes(search.toLowerCase()));
     const matchesStatus = statusFilter === 'TODOS' || item.estado === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  // Alertas
   const filamentosBajos = items.filter((i) => i.esConsumible && (i.cantidadGramos || 0) <= (i.stockMinimoGramos || 1000));
 
   return (
-    <div className="flex min-h-screen bg-slate-900 text-slate-100">
-      {/* Sidebar Menú Lateral */}
-      <aside className="w-64 bg-slate-800 border-r border-slate-700 p-6 flex flex-col justify-between hidden md:flex">
+    <div className="flex flex-col md:flex-row min-h-screen bg-slate-900 text-slate-100">
+      {/* Barra superior móvil con botón Hamburguesa */}
+      <div className="md:hidden bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
+        <div>
+          <h1 className="text-lg font-bold text-blue-400">CITT Stock</h1>
+          <p className="text-xs text-slate-400">Duoc UC • Pañol Digital</p>
+        </div>
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 rounded bg-slate-700 text-slate-200 text-xl focus:outline-none"
+        >
+          ☰
+        </button>
+      </div>
+
+      {/* Sidebar (Desktop + Menú colapsable en Móvil) */}
+      <aside className={`${isMobileMenuOpen ? 'block' : 'hidden'} md:block w-full md:w-64 bg-slate-800 border-r border-slate-700 p-6 flex flex-col justify-between`}>
         <div className="space-y-6">
-          <div className="border-b border-slate-700 pb-4">
+          <div className="hidden md:block border-b border-slate-700 pb-4">
             <h1 className="text-xl font-bold text-blue-400">CITT Stock</h1>
             <p className="text-xs text-slate-400">Duoc UC • Pañol Digital</p>
           </div>
 
           <nav className="space-y-2">
             <button
-              onClick={() => setActiveTab('STOCK')}
+              onClick={() => { setActiveTab('STOCK'); setIsMobileMenuOpen(false); }}
               className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition ${
                 activeTab === 'STOCK' ? 'bg-blue-600 text-white' : 'hover:bg-slate-700 text-slate-300'
               }`}
@@ -233,7 +252,7 @@ export default function Home() {
               📦 Catálogo y Stock
             </button>
             <button
-              onClick={() => setActiveTab('SOLICITUDES')}
+              onClick={() => { setActiveTab('SOLICITUDES'); setIsMobileMenuOpen(false); }}
               className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition flex justify-between items-center ${
                 activeTab === 'SOLICITUDES' ? 'bg-blue-600 text-white' : 'hover:bg-slate-700 text-slate-300'
               }`}
@@ -246,7 +265,7 @@ export default function Home() {
               )}
             </button>
             <button
-              onClick={() => setActiveTab('FILAMENTO')}
+              onClick={() => { setActiveTab('FILAMENTO'); setIsMobileMenuOpen(false); }}
               className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition ${
                 activeTab === 'FILAMENTO' ? 'bg-blue-600 text-white' : 'hover:bg-slate-700 text-slate-300'
               }`}
@@ -254,7 +273,7 @@ export default function Home() {
               🧵 Filamento 3D (g/kg)
             </button>
             <button
-              onClick={() => setActiveTab('ALERTAS')}
+              onClick={() => { setActiveTab('ALERTAS'); setIsMobileMenuOpen(false); }}
               className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition flex justify-between items-center ${
                 activeTab === 'ALERTAS' ? 'bg-blue-600 text-white' : 'hover:bg-slate-700 text-slate-300'
               }`}
@@ -270,7 +289,7 @@ export default function Home() {
         </div>
 
         {/* Selector de Rol en Sidebar */}
-        <div className="bg-slate-900 p-3 rounded-lg border border-slate-700">
+        <div className="bg-slate-900 p-3 rounded-lg border border-slate-700 mt-6 md:mt-0">
           <p className="text-xs text-slate-400 font-semibold mb-2">Rol del Usuario:</p>
           <select
             value={activeRole}
@@ -308,7 +327,7 @@ export default function Home() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <input
                     type="text"
-                    placeholder="Nombre (ej: Laptop Dell / Filamento PLA)"
+                    placeholder="Nombre (ej: Laptop Lenovo / Filamento PLA)"
                     value={form.nombre}
                     onChange={(e) => setForm({ ...form, nombre: e.target.value })}
                     className="p-2 rounded bg-slate-900 border border-slate-700 text-sm"
@@ -316,7 +335,7 @@ export default function Home() {
                   />
                   <input
                     type="text"
-                    placeholder="Código Serie (ej: CITT-3D-001)"
+                    placeholder="Código Serie (ej: CITT-LAP-02)"
                     value={form.codigoSerie}
                     onChange={(e) => setForm({ ...form, codigoSerie: e.target.value })}
                     className="p-2 rounded bg-slate-900 border border-slate-700 text-sm"
@@ -324,7 +343,7 @@ export default function Home() {
                   />
                   <input
                     type="text"
-                    placeholder="Ubicación / Casillero (ej: Casillero A-12)"
+                    placeholder="Ubicación / Casillero (ej: Rack nivel 2)"
                     value={form.ubicacion}
                     onChange={(e) => setForm({ ...form, ubicacion: e.target.value })}
                     className="p-2 rounded bg-slate-900 border border-slate-700 text-sm"
@@ -339,6 +358,26 @@ export default function Home() {
                     <option value="Filamentos / Consumibles">Filamentos / Consumibles</option>
                     <option value="Herramientas">Herramientas</option>
                   </select>
+
+                  <select
+                    value={form.estado}
+                    onChange={(e) => setForm({ ...form, estado: e.target.value as Item['estado'] })}
+                    className="p-2 rounded bg-slate-900 border border-slate-700 text-sm text-white"
+                  >
+                    <option value="DISPONIBLE">DISPONIBLE</option>
+                    <option value="PRESTADO">PRESTADO</option>
+                    <option value="MANTENIMIENTO">MANTENIMIENTO</option>
+                    <option value="DEBAJA">DEBAJA</option>
+                  </select>
+
+                  {/* Campo de Comentario/Observación */}
+                  <input
+                    type="text"
+                    placeholder="Comentario / Nota (ej: Batería mala, sin cargador)"
+                    value={form.descripcion}
+                    onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+                    className="p-2 rounded bg-slate-900 border border-slate-700 text-sm"
+                  />
 
                   <div className="flex items-center space-x-2 bg-slate-900 p-2 rounded border border-slate-700">
                     <input
@@ -370,13 +409,27 @@ export default function Home() {
             {/* Tabla Principal */}
             <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
               <div className="flex flex-col sm:flex-row justify-between gap-4">
-                <input
-                  type="text"
-                  placeholder="🔍 Buscar por código, nombre..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="p-2 rounded bg-slate-900 border border-slate-700 text-sm w-full sm:w-64"
-                />
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                  <input
+                    type="text"
+                    placeholder="🔍 Buscar por código, nombre, notas..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="p-2 rounded bg-slate-900 border border-slate-700 text-sm w-full sm:w-64"
+                  />
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="p-2 rounded bg-slate-900 border border-slate-700 text-sm text-white"
+                  >
+                    <option value="TODOS">Todos los estados</option>
+                    <option value="DISPONIBLE">DISPONIBLE</option>
+                    <option value="PRESTADO">PRESTADO</option>
+                    <option value="MANTENIMIENTO">MANTENIMIENTO</option>
+                    <option value="DEBAJA">DEBAJA</option>
+                  </select>
+                </div>
+
                 {activeRole === 'ADMINISTRADOR' && (
                   <button onClick={handleExportCSV} className="bg-emerald-700 hover:bg-emerald-600 text-sm px-3 py-2 rounded">
                     📥 Exportar Excel
@@ -391,6 +444,7 @@ export default function Home() {
                     <th className="p-2">Nombre</th>
                     <th className="p-2">Casillero/Ubicación</th>
                     <th className="p-2">Estado / Stock</th>
+                    <th className="p-2">Comentario / Nota</th>
                     <th className="p-2">Asignado A</th>
                     <th className="p-2 text-center">Acciones</th>
                   </tr>
@@ -408,11 +462,17 @@ export default function Home() {
                           </span>
                         ) : (
                           <span className={`px-2 py-0.5 text-xs rounded border ${
-                            item.estado === 'DISPONIBLE' ? 'bg-emerald-900/60 text-emerald-300 border-emerald-700' : 'bg-amber-900/60 text-amber-300 border-amber-700'
+                            item.estado === 'DISPONIBLE' ? 'bg-emerald-900/60 text-emerald-300 border-emerald-700' :
+                            item.estado === 'PRESTADO' ? 'bg-amber-900/60 text-amber-300 border-amber-700' :
+                            item.estado === 'MANTENIMIENTO' ? 'bg-blue-900/60 text-blue-300 border-blue-700' :
+                            'bg-rose-900/60 text-rose-300 border-rose-700'
                           }`}>
                             {item.estado}
                           </span>
                         )}
+                      </td>
+                      <td className="p-2 text-slate-300 text-xs italic">
+                        {item.descripcion || '-'}
                       </td>
                       <td className="p-2 text-slate-300">{item.prestadoA || '-'}</td>
                       <td className="p-2 text-center space-x-2">
@@ -427,7 +487,10 @@ export default function Home() {
                           <button onClick={() => setRequestItem(item)} className="bg-blue-600 px-2 py-1 rounded text-xs">Solicitar</button>
                         )}
                         {activeRole === 'ADMINISTRADOR' && (
-                          <button onClick={() => handleDelete(item.id)} className="bg-rose-600 px-2 py-1 rounded text-xs">Eliminar</button>
+                          <>
+                            <button onClick={() => setEditingItem(item)} className="bg-amber-600 px-2 py-1 rounded text-xs">Editar</button>
+                            <button onClick={() => handleDelete(item.id)} className="bg-rose-600 px-2 py-1 rounded text-xs">Eliminar</button>
+                          </>
                         )}
                       </td>
                     </tr>
@@ -481,7 +544,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* PESTAÑA 3: FILAMENTO 3D Y CONSUMIBLES */}
+        {/* PESTAÑA 3: FILAMENTO 3D */}
         {activeTab === 'FILAMENTO' && (
           <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-6">
             <div>
@@ -558,26 +621,81 @@ export default function Home() {
                 />
               </div>
               <div className="flex justify-end space-x-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setFilamentItem(null)}
-                  className="px-4 py-2 bg-slate-700 rounded text-slate-300 text-xs"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded font-semibold text-white text-xs"
-                >
-                  Aplicar Descuento
-                </button>
+                <button type="button" onClick={() => setFilamentItem(null)} className="px-4 py-2 bg-slate-700 rounded text-slate-300 text-xs">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded font-semibold text-white text-xs">Aplicar Descuento</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Modal de Solicitud */}
+      {/* Modal Edición */}
+      {editingItem && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-lg space-y-4">
+            <h3 className="text-xl font-bold text-slate-100">Editar Activo</h3>
+            <form onSubmit={handleUpdate} className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400">Nombre</label>
+                <input
+                  type="text"
+                  value={editingItem.nombre}
+                  onChange={(e) => setEditingItem({ ...editingItem, nombre: e.target.value })}
+                  className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-white"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400">Código de Serie</label>
+                <input
+                  type="text"
+                  value={editingItem.codigoSerie}
+                  onChange={(e) => setEditingItem({ ...editingItem, codigoSerie: e.target.value })}
+                  className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-white"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400">Estado</label>
+                <select
+                  value={editingItem.estado}
+                  onChange={(e) => setEditingItem({ ...editingItem, estado: e.target.value as Item['estado'] })}
+                  className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-white"
+                >
+                  <option value="DISPONIBLE">DISPONIBLE</option>
+                  <option value="PRESTADO">PRESTADO</option>
+                  <option value="MANTENIMIENTO">MANTENIMIENTO</option>
+                  <option value="DEBAJA">DEBAJA</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400">Ubicación / Casillero</label>
+                <input
+                  type="text"
+                  value={editingItem.ubicacion || ''}
+                  onChange={(e) => setEditingItem({ ...editingItem, ubicacion: e.target.value })}
+                  className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400">Comentario / Observación</label>
+                <input
+                  type="text"
+                  value={editingItem.descripcion || ''}
+                  onChange={(e) => setEditingItem({ ...editingItem, descripcion: e.target.value })}
+                  className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-white"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 pt-3">
+                <button type="button" onClick={() => setEditingItem(null)} className="px-4 py-2 bg-slate-700 rounded text-slate-300">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded font-semibold text-white">Guardar Cambios</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Solicitud */}
       {requestItem && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md space-y-4">
@@ -604,7 +722,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Modal de Préstamo Directo */}
+      {/* Modal Préstamo Directo */}
       {loanItem && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md space-y-4">
