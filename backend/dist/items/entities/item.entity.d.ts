@@ -12,6 +12,9 @@ export declare class Item {
     estado: ItemStatus;
     descripcion: string;
     ubicacion: string;
+    esConsumible: boolean;
+    cantidadGramos: number;
+    stockMinimoGramos: number;
     prestadoA: string;
     fechaPrestamo: Date;
     fechaCreacion: Date;

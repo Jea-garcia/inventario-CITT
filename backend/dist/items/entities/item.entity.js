@@ -26,6 +26,9 @@ let Item = class Item {
     estado;
     descripcion;
     ubicacion;
+    esConsumible;
+    cantidadGramos;
+    stockMinimoGramos;
     prestadoA;
     fechaPrestamo;
     fechaCreacion;
@@ -60,6 +63,18 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 100, nullable: true }),
     __metadata("design:type", String)
 ], Item.prototype, "ubicacion", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], Item.prototype, "esConsumible", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'float', default: 0 }),
+    __metadata("design:type", Number)
+], Item.prototype, "cantidadGramos", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'float', default: 1000 }),
+    __metadata("design:type", Number)
+], Item.prototype, "stockMinimoGramos", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 150, nullable: true }),
     __metadata("design:type", String)
