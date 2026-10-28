@@ -12,6 +12,8 @@ export declare class Item {
     estado: ItemStatus;
     descripcion: string;
     ubicacion: string;
+    prestadoA: string;
+    fechaPrestamo: Date;
     fechaCreacion: Date;
     fechaActualizacion: Date;
 }

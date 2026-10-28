@@ -26,6 +26,8 @@ let Item = class Item {
     estado;
     descripcion;
     ubicacion;
+    prestadoA;
+    fechaPrestamo;
     fechaCreacion;
     fechaActualizacion;
 };
@@ -58,6 +60,14 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 100, nullable: true }),
     __metadata("design:type", String)
 ], Item.prototype, "ubicacion", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 150, nullable: true }),
+    __metadata("design:type", String)
+], Item.prototype, "prestadoA", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),
+    __metadata("design:type", Date)
+], Item.prototype, "fechaPrestamo", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)

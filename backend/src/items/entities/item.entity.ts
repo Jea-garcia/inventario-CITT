@@ -16,10 +16,10 @@ export class Item {
   nombre: string;
 
   @Column({ type: 'varchar', length: 100, unique: true })
-  codigoSerie: string; // Ej: CITT-LAP-001
+  codigoSerie: string;
 
   @Column({ type: 'varchar', length: 100 })
-  categoria: string; // Ej: Laptops, Sensores, Herramientas
+  categoria: string;
 
   @Column({ type: 'enum', enum: ItemStatus, default: ItemStatus.DISPONIBLE })
   estado: ItemStatus;
@@ -28,7 +28,14 @@ export class Item {
   descripcion: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
-  ubicacion: string; // Ej: Pañol CITT, Sala 102
+  ubicacion: string;
+
+  // Nuevos campos para la gestión de préstamos
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  prestadoA: string; // Nombre y Rut/Correo del Alumno o Docente
+
+  @Column({ type: 'timestamp', nullable: true })
+  fechaPrestamo: Date;
 
   @CreateDateColumn()
   fechaCreacion: Date;
