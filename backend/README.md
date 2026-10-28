@@ -33,7 +33,10 @@ CITT_TENANT_ID=f03120bc-38bf-4c7a-9a91-d85c1ec88599
 FRONTEND_ORIGIN=http://localhost:3000
 JWT_SECRET=tu-clave-secreta-para-jwt
 Iniciar el servidor en modo desarrollo:Bashnpm run start:dev
-API REST disponible en: http://localhost:3001Documentación Swagger en: http://localhost:3001/api👥 Equipo del ProyectoLíder de Proyecto / Desarrollador Principal: Jean GarcíaContraparte Cliente: Paz Constanza Morales Saavedra — Representante CITT / Duoc UCDocente Guía: Fabián Alcántara Guajardo
+API REST disponible en: http://localhost:3001Documentación Swagger en: http://localhost:3001/api
+👥 Equipo del ProyectoLíder de Proyecto / Desarrollador Principal: Jean García 
+Contraparte Cliente: Paz Constanza Morales Saavedra — Representante CITT / Duoc UC 
+Docente Guía: Fabián Alcántara Guajardo
 ---
 
 ### 📄 2. Para la carpeta `frontend/README.md`
