@@ -417,6 +417,13 @@ export default function Home() {
             </h2>
             <p className="text-sm text-slate-400">Perfil en uso: <span className="text-blue-400 font-semibold">{activeRole}</span></p>
           </div>
+
+          {/* Logos Institucionales Duoc UC + CITT en la esquina superior derecha */}
+          <div className="hidden sm:flex items-center gap-3 bg-white/95 px-4 py-2 rounded-xl shadow-md border border-slate-200">
+            <img src="/duoc-logo.png" alt="Duoc UC" className="h-8 object-contain" />
+            <div className="h-6 w-[1px] bg-slate-300"></div>
+            <img src="/citt-logo.png" alt="CITT" className="h-8 w-8 object-contain" />
+          </div>
         </header>
 
         {/* PESTAÑA 1: STOCK Y CATÁLOGO */}
