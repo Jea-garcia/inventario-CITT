@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export interface Item {
   id: string;
@@ -11,6 +11,9 @@ export interface Item {
   prestadoA?: string;
   fechaPrestamo?: string;
   fechaCreacion: string;
+  esConsumible?: boolean;
+  cantidadGramos?: number;
+  stockMinimoGramos?: number;
 }
 
 export const getItems = async (): Promise<Item[]> => {
