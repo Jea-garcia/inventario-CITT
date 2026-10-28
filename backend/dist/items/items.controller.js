@@ -29,13 +29,13 @@ let ItemsController = class ItemsController {
         return this.itemsService.findAll();
     }
     findOne(id) {
-        return this.itemsService.findOne(+id);
+        return this.itemsService.findOne(id);
     }
     update(id, updateItemDto) {
-        return this.itemsService.update(+id, updateItemDto);
+        return this.itemsService.update(id, updateItemDto);
     }
     remove(id) {
-        return this.itemsService.remove(+id);
+        return this.itemsService.remove(id);
     }
 };
 exports.ItemsController = ItemsController;
