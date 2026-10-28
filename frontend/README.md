@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Markdown# CITT Stock - Frontend Web 🎨
 
-## Getting Started
+Interfaz gráfica web, responsive e institucional para la plataforma de control de inventario y pañol del Centro de Innovación y Transferencia Tecnológica (CITT) – Duoc UC Sede San Bernardo.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 📌 Descripción General
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Este directorio contiene la aplicación cliente **Frontend** de CITT Stock. Proporciona un Dashboard con métricas clave (KPIs) en tiempo real, catálogo interactivo con autogeneración de códigos por categoría (`EQ-CITT-`, `IM-CITT-`, `3D-CITT-`, `TA-CITT-`), generación y visualización de códigos QR, módulo de solicitudes por Escuela de Duoc UC y gestión del flujo de Órdenes de Trabajo (OT).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🛠️ Tecnologías Utilizadas
 
-## Learn More
+- **Framework Principal:** Next.js (React con TypeScript)
+- **Estilos & UI:** Tailwind CSS, Shadcn UI, Lucide Icons
+- **Generación QR:** `qrcode.react`
+- **Consumo de API:** Fetch API / Axios conectado con la API REST de NestJS.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🚀 Guía de Instalación y Ejecución Local
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. **Ubicarse en el directorio frontend e instalar dependencias:**
+   ```bash
+   cd frontend
+   npm install
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Pasos finales para actualizar en tu terminal:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Reemplaza el contenido de `frontend/README.md` con este bloque.
+2. Ejecuta los comandos en la raíz del proyecto para sincronizar GitHub:
+
+```powershell
+git add frontend/README.md
+git commit -m "docs: actualizado README.md del frontend"
+git push origin main
