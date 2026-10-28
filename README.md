@@ -49,12 +49,14 @@ El proyecto está construido bajo una arquitectura moderna, escalable y con sopo
 └────────────────────────────┬────────────────────────────┘
 │ REST API (JWT)
 ▼
+
 ┌─────────────────────────────────────────────────────────┐
 │                    SERVIDOR / BACKEND                   │
 │               NestJS + TypeScript + TypeORM             │
 └────────────────────────────┬────────────────────────────┘
 │ SQL / RLS (app.tenant_id)
 ▼
+
 ┌─────────────────────────────────────────────────────────┐
 │                  BASE DE DATOS / DATABASE               │
 │          PostgreSQL Multi-Tenant (Shared Schema)        │
@@ -96,9 +98,20 @@ npm install
 # Iniciar en modo desarrollo
 npm run start:dev
 
-API disponible en: http://localhost:3001Documentación Swagger: http://localhost:3001/api4. Frontend (Next.js)Bash# Navegar a la carpeta frontend e instalar dependencias
+API disponible en: http://localhost:3001
+Documentación Swagger: http://localhost:3001/api4.
+Frontend (Next.js)Bash# Navegar a la carpeta frontend e instalar dependencias
 npm install
 
 # Iniciar servidor de desarrollo
 npm run dev
-Aplicación disponible en: http://localhost:3000📋 Metodología de TrabajoEl desarrollo se llevó a cabo bajo el marco ágil Scrum / Kanban, organizado en las siguientes fases del proyecto Capstone:FASE 1: Definición del proyecto, toma de requerimientos y arquitectura.   FASE 2: Desarrollo de la API REST, interfaz web, base de datos y pruebas de integración.   FASE 3: Documentación final, manuales y preparación de la defensa ante comisión.   👥 Equipo de Desarrollo y RepresentantesContraparte Institucional / ClientePaz Constanza Morales Saavedra (pc.morales@profesor.duoc.cl) — Representante del CITT.   Docente GuíaFabián Alcántara Guajardo (f.alcantara@profesor.duoc.cl)   Unidad Ejecutora (Escuela de Informática y Telecomunicaciones)Jean García — Líder de Proyecto / Desarrollador Principal
+Aplicación disponible en: http://localhost:3000 Metodología de TrabajoEl desarrollo se llevó a cabo bajo el marco ágil Scrum / Kanban, organizado en las siguientes fases del proyecto Capstone:
+
+FASE 1: Definición del proyecto, toma de requerimientos y arquitectura.
+FASE 2: Desarrollo de la API REST, interfaz web, base de datos y pruebas de integración.
+FASE 3: Documentación final, manuales y preparación de la defensa ante comisión.
+
+Contraparte Cliente Paz Constanza Morales Saavedra (pc.morales@profesor.duoc.cl) — Representante del CITT.
+Docente Guía Fabián Alcántara Guajardo (f.alcantara@profesor.duoc.cl)
+
+👥 Jean García — Líder de Proyecto / Desarrollador Principal
