@@ -8,7 +8,42 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
+const user_entity_1 = require("../users/entities/user.entity");
 let AuthService = class AuthService {
+    mockUsers = [
+        {
+            email: 'admin@duoc.cl',
+            password: 'admin',
+            nombre: 'Administrador CITT',
+            rol: user_entity_1.UserRole.ADMIN,
+        },
+        {
+            email: 'lider@duoc.cl',
+            password: 'lider',
+            nombre: 'Alumno Líder Pañol',
+            rol: user_entity_1.UserRole.ALUMNO_LIDER,
+        },
+        {
+            email: 'alumno@duoc.cl',
+            password: 'alumno',
+            nombre: 'Estudiante Duoc UC',
+            rol: user_entity_1.UserRole.USUARIO_GLOBAL,
+        },
+    ];
+    async login(email, pass) {
+        const user = this.mockUsers.find((u) => u.email === email && u.password === pass);
+        if (!user) {
+            throw new common_1.UnauthorizedException('Credenciales inválidas');
+        }
+        return {
+            access_token: `jwt-token-citt-${user.rol.toLowerCase()}`,
+            user: {
+                nombre: user.nombre,
+                email: user.email,
+                rol: user.rol,
+            },
+        };
+    }
 };
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([

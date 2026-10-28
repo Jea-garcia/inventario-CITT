@@ -6,6 +6,12 @@ import { getItems, createItem, updateItem, deleteItem, Item } from '@/services/a
 type UserRole = 'ADMINISTRADOR' | 'ALUMNO_LIDER' | 'USUARIO_GLOBAL';
 type Tab = 'STOCK' | 'SOLICITUDES' | 'FILAMENTO' | 'ALERTAS';
 
+interface UserSession {
+  nombre: string;
+  email: string;
+  rol: UserRole;
+}
+
 interface SolicitudLocal {
   id: string;
   itemNombre: string;
@@ -19,9 +25,16 @@ export default function Home() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('STOCK');
-  const [activeRole, setActiveRole] = useState<UserRole>('ADMINISTRADOR');
 
-  // Estado para menú hamburguesa móvil
+  // Estado de sesión de usuario autenticado
+  const [userSession, setUserSession] = useState<UserSession | null>(null);
+
+  // Campos formulario login
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  // Menú hamburguesa móvil
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Solicitudes
@@ -29,7 +42,7 @@ export default function Home() {
   const [requestItem, setRequestItem] = useState<Item | null>(null);
   const [solicitanteInput, setSolicitanteInput] = useState('');
 
-  // Descuento de Filamento 3D
+  // Filamento 3D
   const [filamentItem, setFilamentItem] = useState<Item | null>(null);
   const [descuentoGramos, setDescuentoGramos] = useState<number>(50);
 
@@ -37,7 +50,7 @@ export default function Home() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('TODOS');
 
-  // Formulario con Descripción/Comentario reincorporado
+  // Formulario Activo
   const [form, setForm] = useState({
     nombre: '',
     codigoSerie: '',
@@ -67,6 +80,28 @@ export default function Home() {
   useEffect(() => {
     loadItems();
   }, []);
+
+  // Lógica de Login
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+
+    if (loginEmail === 'admin@duoc.cl' && loginPass === 'admin') {
+      setUserSession({ nombre: 'Administrador CITT', email: loginEmail, rol: 'ADMINISTRADOR' });
+    } else if (loginEmail === 'lider@duoc.cl' && loginPass === 'lider') {
+      setUserSession({ nombre: 'Alumno Líder Pañol', email: loginEmail, rol: 'ALUMNO_LIDER' });
+    } else if (loginEmail === 'alumno@duoc.cl' && loginPass === 'alumno') {
+      setUserSession({ nombre: 'Estudiante Duoc UC', email: loginEmail, rol: 'USUARIO_GLOBAL' });
+    } else {
+      setLoginError('Credenciales incorrectas. Verifique correo y contraseña.');
+    }
+  };
+
+  const handleLogout = () => {
+    setUserSession(null);
+    setLoginEmail('');
+    setLoginPass('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,7 +232,7 @@ export default function Home() {
       `"${i.ubicacion}"`,
       `"${i.estado}"`,
       `"${i.descripcion || ''}"`,
-      `"${i.prestadoA || 'N/A'}"`
+      `"${i.prestadoA || 'N/A'}"`,
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const link = document.createElement('a');
@@ -218,9 +253,73 @@ export default function Home() {
 
   const filamentosBajos = items.filter((i) => i.esConsumible && (i.cantidadGramos || 0) <= (i.stockMinimoGramos || 1000));
 
+  // PANTALLA DE LOGIN SI NO HAY SESIÓN ACTIVA
+  if (!userSession) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 w-full max-w-md space-y-6 shadow-2xl">
+          <div className="text-center space-y-2">
+            <h1 className="text-3xl font-black text-blue-400">CITT Stock</h1>
+            <p className="text-xs text-slate-400">Sistema de Inventario • Duoc UC</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            {loginError && (
+              <div className="bg-rose-950/80 border border-rose-800 text-rose-300 p-3 rounded text-xs text-center">
+                {loginError}
+              </div>
+            )}
+
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Correo Institucional</label>
+              <input
+                type="email"
+                placeholder="admin@duoc.cl / lider@duoc.cl / alumno@duoc.cl"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                className="w-full p-2.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-sm"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Contraseña</label>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={loginPass}
+                onChange={(e) => setLoginPass(e.target.value)}
+                className="w-full p-2.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-sm"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-lg transition text-sm shadow-lg shadow-blue-600/30"
+            >
+              Iniciar Sesión
+            </button>
+          </form>
+
+          {/* Accesos rápidos de prueba */}
+          <div className="border-t border-slate-700/60 pt-4 text-xs text-slate-400 space-y-1">
+            <p className="font-semibold text-slate-300">Cuentas de Prueba:</p>
+            <p>🛡️ Admin: <code className="text-blue-300">admin@duoc.cl</code> / <code className="text-slate-300">admin</code></p>
+            <p>🎓 Líder: <code className="text-blue-300">lider@duoc.cl</code> / <code className="text-slate-300">lider</code></p>
+            <p>👤 Alumno: <code className="text-blue-300">alumno@duoc.cl</code> / <code className="text-slate-300">alumno</code></p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // PANTALLA PRINCIPAL CON SESIÓN INICIADA
+  const activeRole = userSession.rol;
+
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-900 text-slate-100">
-      {/* Barra superior móvil con botón Hamburguesa */}
+      {/* Barra superior móvil */}
       <div className="md:hidden bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
         <div>
           <h1 className="text-lg font-bold text-blue-400">CITT Stock</h1>
@@ -234,7 +333,7 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Sidebar (Desktop + Menú colapsable en Móvil) */}
+      {/* Sidebar */}
       <aside className={`${isMobileMenuOpen ? 'block' : 'hidden'} md:block w-full md:w-64 bg-slate-800 border-r border-slate-700 p-6 flex flex-col justify-between`}>
         <div className="space-y-6">
           <div className="hidden md:block border-b border-slate-700 pb-4">
@@ -288,18 +387,21 @@ export default function Home() {
           </nav>
         </div>
 
-        {/* Selector de Rol en Sidebar */}
-        <div className="bg-slate-900 p-3 rounded-lg border border-slate-700 mt-6 md:mt-0">
-          <p className="text-xs text-slate-400 font-semibold mb-2">Rol del Usuario:</p>
-          <select
-            value={activeRole}
-            onChange={(e) => setActiveRole(e.target.value as UserRole)}
-            className="w-full bg-slate-800 text-xs text-blue-300 font-semibold p-2 rounded border border-slate-700"
+        {/* Info Sesión de Usuario */}
+        <div className="bg-slate-900 p-3 rounded-lg border border-slate-700 mt-6 md:mt-0 space-y-2">
+          <div>
+            <p className="text-xs text-slate-400">Usuario Autenticado:</p>
+            <p className="text-xs text-white font-bold truncate">{userSession.nombre}</p>
+            <span className="text-[10px] bg-blue-900/60 text-blue-300 border border-blue-700 px-1.5 py-0.5 rounded uppercase font-semibold">
+              {userSession.rol}
+            </span>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full bg-rose-900/50 hover:bg-rose-800 border border-rose-700 text-rose-200 text-xs py-1.5 rounded transition"
           >
-            <option value="ADMINISTRADOR">🛡️ ADMINISTRADOR</option>
-            <option value="ALUMNO_LIDER">🎓 ALUMNO LÍDER</option>
-            <option value="USUARIO_GLOBAL">👤 USUARIO GLOBAL</option>
-          </select>
+            Cerrar Sesión
+          </button>
         </div>
       </aside>
 
@@ -320,7 +422,6 @@ export default function Home() {
         {/* PESTAÑA 1: STOCK Y CATÁLOGO */}
         {activeTab === 'STOCK' && (
           <div className="space-y-8">
-            {/* Formulario exclusivo Admin */}
             {activeRole === 'ADMINISTRADOR' && (
               <form onSubmit={handleSubmit} className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
                 <h3 className="text-lg font-semibold text-slate-200">Registrar Nuevo Activo o Consumible</h3>
@@ -370,7 +471,6 @@ export default function Home() {
                     <option value="DEBAJA">DEBAJA</option>
                   </select>
 
-                  {/* Campo de Comentario/Observación */}
                   <input
                     type="text"
                     placeholder="Comentario / Nota (ej: Batería mala, sin cargador)"
@@ -406,7 +506,6 @@ export default function Home() {
               </form>
             )}
 
-            {/* Tabla Principal */}
             <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
               <div className="flex flex-col sm:flex-row justify-between gap-4">
                 <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
@@ -471,9 +570,7 @@ export default function Home() {
                           </span>
                         )}
                       </td>
-                      <td className="p-2 text-slate-300 text-xs italic">
-                        {item.descripcion || '-'}
-                      </td>
+                      <td className="p-2 text-slate-300 text-xs italic">{item.descripcion || '-'}</td>
                       <td className="p-2 text-slate-300">{item.prestadoA || '-'}</td>
                       <td className="p-2 text-center space-x-2">
                         {(activeRole === 'ADMINISTRADOR' || activeRole === 'ALUMNO_LIDER') && !item.esConsumible && (
@@ -603,7 +700,7 @@ export default function Home() {
         )}
       </main>
 
-      {/* Modal Descuento Filamento */}
+      {/* Modales */}
       {filamentItem && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md space-y-4">
@@ -629,7 +726,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Modal Edición */}
       {editingItem && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-lg space-y-4">
@@ -695,7 +791,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Modal Solicitud */}
       {requestItem && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md space-y-4">
@@ -722,7 +817,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Modal Préstamo Directo */}
       {loanItem && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md space-y-4">
