@@ -13,6 +13,10 @@ const typeorm_1 = require("@nestjs/typeorm");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 const items_module_1 = require("./items/items.module");
+const users_module_1 = require("./users/users.module");
+const auth_module_1 = require("./auth/auth.module");
+const user_entity_1 = require("./users/entities/user.entity");
+const solicitud_entity_1 = require("./items/entities/solicitud.entity");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -29,10 +33,13 @@ exports.AppModule = AppModule = __decorate([
                 username: process.env.DB_USERNAME || 'postgres',
                 password: process.env.DB_PASSWORD || 'admin123',
                 database: process.env.DB_DATABASE || 'inventario_citt',
+                entities: [user_entity_1.User, solicitud_entity_1.Solicitud],
                 autoLoadEntities: true,
                 synchronize: true,
             }),
             items_module_1.ItemsModule,
+            users_module_1.UsersModule,
+            auth_module_1.AuthModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

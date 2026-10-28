@@ -4,6 +4,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ItemsModule } from './items/items.module';
+import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
+import { User } from './users/entities/user.entity';
+import { Solicitud } from './items/entities/solicitud.entity';
 
 @Module({
   imports: [
@@ -17,10 +21,13 @@ import { ItemsModule } from './items/items.module';
       username: process.env.DB_USERNAME || 'postgres',
       password: process.env.DB_PASSWORD || 'admin123',
       database: process.env.DB_DATABASE || 'inventario_citt',
+      entities: [User, Solicitud],
       autoLoadEntities: true,
       synchronize: true, // Crea las tablas automáticamente según el código en etapa de desarrollo
     }),
     ItemsModule,
+    UsersModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -3,15 +3,34 @@
 import { useEffect, useState } from 'react';
 import { getItems, createItem, updateItem, deleteItem, Item } from '@/services/api';
 
+type UserRole = 'ADMINISTRADOR' | 'ALUMNO_LIDER' | 'USUARIO_GLOBAL';
+
+interface SolicitudLocal {
+  id: string;
+  itemNombre: string;
+  codigoSerie: string;
+  solicitanteNombre: string;
+  estado: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA';
+  fecha: string;
+}
+
 export default function Home() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Estado para el Rol Simulado del Usuario Activo
+  const [activeRole, setActiveRole] = useState<UserRole>('ADMINISTRADOR');
+
+  // Estado para Solicitudes locales
+  const [solicitudes, setSolicitudes] = useState<SolicitudLocal[]>([]);
+  const [requestItem, setRequestItem] = useState<Item | null>(null);
+  const [solicitanteInput, setSolicitanteInput] = useState('');
+
   // Filtros de búsqueda
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('TODOS');
 
-  // Formularios y Modales
+  // Formularios
   const [form, setForm] = useState<{
     nombre: string;
     codigoSerie: string;
@@ -120,6 +139,52 @@ export default function Home() {
     }
   };
 
+  // Solicitar Equipo (Usuario Global)
+  const handleCreateRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requestItem || !solicitanteInput.trim()) return;
+
+    const nuevaSolicitud: SolicitudLocal = {
+      id: Date.now().toString(),
+      itemNombre: requestItem.nombre,
+      codigoSerie: requestItem.codigoSerie,
+      solicitanteNombre: solicitanteInput,
+      estado: 'PENDIENTE',
+      fecha: new Date().toLocaleDateString('es-CL'),
+    };
+
+    setSolicitudes([nuevaSolicitud, ...solicitudes]);
+    setRequestItem(null);
+    setSolicitanteInput('');
+    alert('Solicitud enviada a revisión por un Administrador o Alumno Líder');
+  };
+
+  // Aprobar Solicitud (Admin / Alumno Líder)
+  const handleApproveRequest = async (sol: SolicitudLocal) => {
+    const itemTarget = items.find((i) => i.codigoSerie === sol.codigoSerie);
+    if (itemTarget) {
+      try {
+        await updateItem(itemTarget.id, {
+          estado: 'PRESTADO',
+          prestadoA: sol.solicitanteNombre,
+        });
+        setSolicitudes(
+          solicitudes.map((s) => (s.id === sol.id ? { ...s, estado: 'APROBADA' } : s))
+        );
+        loadItems();
+      } catch (err) {
+        alert('Error al aprobar solicitud');
+      }
+    }
+  };
+
+  // Rechazar Solicitud
+  const handleRejectRequest = (id: string) => {
+    setSolicitudes(
+      solicitudes.map((s) => (s.id === id ? { ...s, estado: 'RECHAZADA' } : s))
+    );
+  };
+
   // Exportar inventario a formato CSV
   const handleExportCSV = () => {
     if (filteredItems.length === 0) {
@@ -148,7 +213,7 @@ export default function Home() {
     document.body.removeChild(link);
   };
 
-  // Filtrado dinámico en tiempo real
+  // Filtrado dinámico
   const filteredItems = items.filter((item) => {
     const matchesSearch =
       item.nombre.toLowerCase().includes(search.toLowerCase()) ||
@@ -161,7 +226,7 @@ export default function Home() {
     return matchesSearch && matchesStatus;
   });
 
-  // Métricas calculadas en tiempo real
+  // Métricas
   const totalEquipos = items.length;
   const disponiblesCount = items.filter((i) => i.estado === 'DISPONIBLE').length;
   const prestadosCount = items.filter((i) => i.estado === 'PRESTADO').length;
@@ -170,9 +235,25 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-900 text-slate-100 p-8">
       <div className="max-w-6xl mx-auto space-y-8">
-        <header className="border-b border-slate-700 pb-4">
-          <h1 className="text-3xl font-bold text-blue-400">Inventario CITT - Duoc UC</h1>
-          <p className="text-slate-400">Gestión de activos, equipos y pañol</p>
+        {/* Cabecera y Selector de Rol */}
+        <header className="border-b border-slate-700 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-blue-400">Inventario CITT - Duoc UC</h1>
+            <p className="text-slate-400">Gestión de activos, equipos y pañol</p>
+          </div>
+
+          <div className="bg-slate-800 p-2 rounded-lg border border-slate-700 flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-semibold px-2">Rol Activo:</span>
+            <select
+              value={activeRole}
+              onChange={(e) => setActiveRole(e.target.value as UserRole)}
+              className="bg-slate-900 text-sm text-blue-300 font-semibold p-2 rounded border border-slate-700 cursor-pointer"
+            >
+              <option value="ADMINISTRADOR">🛡️ ADMINISTRADOR</option>
+              <option value="ALUMNO_LIDER">🎓 ALUMNO LÍDER</option>
+              <option value="USUARIO_GLOBAL">👤 USUARIO GLOBAL</option>
+            </select>
+          </div>
         </header>
 
         {/* Tarjetas KPI de Métricas */}
@@ -195,70 +276,127 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Formulario de Registro */}
-        <form onSubmit={handleSubmit} className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
-          <h2 className="text-xl font-semibold text-slate-200">Registrar Nuevo Activo</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <input
-              type="text"
-              placeholder="Nombre (ej: Laptop Dell)"
-              value={form.nombre}
-              onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-              className="p-2 rounded bg-slate-900 border border-slate-700 text-white"
-              required
-            />
-            <input
-              type="text"
-              placeholder="Código Serie (ej: CITT-LAP-001)"
-              value={form.codigoSerie}
-              onChange={(e) => setForm({ ...form, codigoSerie: e.target.value })}
-              className="p-2 rounded bg-slate-900 border border-slate-700 text-white"
-              required
-            />
-            <input
-              type="text"
-              placeholder="Categoría (ej: Computadores)"
-              value={form.categoria}
-              onChange={(e) => setForm({ ...form, categoria: e.target.value })}
-              className="p-2 rounded bg-slate-900 border border-slate-700 text-white"
-              required
-            />
-            <input
-              type="text"
-              placeholder="Ubicación (ej: Pañol 1)"
-              value={form.ubicacion}
-              onChange={(e) => setForm({ ...form, ubicacion: e.target.value })}
-              className="p-2 rounded bg-slate-900 border border-slate-700 text-white"
-            />
-            <select
-              value={form.estado}
-              onChange={(e) => setForm({ ...form, estado: e.target.value as Item['estado'] })}
-              className="p-2 rounded bg-slate-900 border border-slate-700 text-white"
-            >
-              <option value="DISPONIBLE">DISPONIBLE</option>
-              <option value="PRESTADO">PRESTADO</option>
-              <option value="MANTENIMIENTO">MANTENIMIENTO</option>
-              <option value="DEBAJA">DEBAJA</option>
-            </select>
-            <input
-              type="text"
-              placeholder="Descripción breve"
-              value={form.descripcion}
-              onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-              className="p-2 rounded bg-slate-900 border border-slate-700 text-white"
-            />
-          </div>
-          <button type="submit" className="bg-blue-600 hover:bg-blue-500 font-semibold px-4 py-2 rounded">
-            Guardar en PostgreSQL
-          </button>
-        </form>
+        {/* Formulario de Registro (Exclusivo Administrador) */}
+        {activeRole === 'ADMINISTRADOR' && (
+          <form onSubmit={handleSubmit} className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
+            <h2 className="text-xl font-semibold text-slate-200">Registrar Nuevo Activo (Administrador)</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <input
+                type="text"
+                placeholder="Nombre (ej: Laptop Dell)"
+                value={form.nombre}
+                onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                className="p-2 rounded bg-slate-900 border border-slate-700 text-white"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Código Serie (ej: CITT-LAP-001)"
+                value={form.codigoSerie}
+                onChange={(e) => setForm({ ...form, codigoSerie: e.target.value })}
+                className="p-2 rounded bg-slate-900 border border-slate-700 text-white"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Categoría (ej: Computadores)"
+                value={form.categoria}
+                onChange={(e) => setForm({ ...form, categoria: e.target.value })}
+                className="p-2 rounded bg-slate-900 border border-slate-700 text-white"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Ubicación (ej: Pañol 1)"
+                value={form.ubicacion}
+                onChange={(e) => setForm({ ...form, ubicacion: e.target.value })}
+                className="p-2 rounded bg-slate-900 border border-slate-700 text-white"
+              />
+              <select
+                value={form.estado}
+                onChange={(e) => setForm({ ...form, estado: e.target.value as Item['estado'] })}
+                className="p-2 rounded bg-slate-900 border border-slate-700 text-white"
+              >
+                <option value="DISPONIBLE">DISPONIBLE</option>
+                <option value="PRESTADO">PRESTADO</option>
+                <option value="MANTENIMIENTO">MANTENIMIENTO</option>
+                <option value="DEBAJA">DEBAJA</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Descripción breve"
+                value={form.descripcion}
+                onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+                className="p-2 rounded bg-slate-900 border border-slate-700 text-white"
+              />
+            </div>
+            <button type="submit" className="bg-blue-600 hover:bg-blue-500 font-semibold px-4 py-2 rounded">
+              Guardar en PostgreSQL
+            </button>
+          </form>
+        )}
 
-        {/* Sección de Búsqueda, Exportación y Tabla */}
+        {/* Panel de Solicitudes Pendientes (Aprobaciones de Admin / Alumno Líder) */}
+        {(activeRole === 'ADMINISTRADOR' || activeRole === 'ALUMNO_LIDER') && solicitudes.length > 0 && (
+          <section className="bg-slate-800 p-6 rounded-xl border border-amber-500/30 space-y-4">
+            <h2 className="text-xl font-semibold text-amber-300">📌 Solicitudes Pendientes de Aprobación</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-700 text-slate-400">
+                    <th className="p-2">Equipo</th>
+                    <th className="p-2">Solicitante</th>
+                    <th className="p-2">Fecha</th>
+                    <th className="p-2">Estado</th>
+                    <th className="p-2 text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {solicitudes.map((sol) => (
+                    <tr key={sol.id} className="border-b border-slate-700/50">
+                      <td className="p-2 font-medium">{sol.itemNombre} ({sol.codigoSerie})</td>
+                      <td className="p-2 text-amber-200">{sol.solicitanteNombre}</td>
+                      <td className="p-2 text-slate-400">{sol.fecha}</td>
+                      <td className="p-2">
+                        <span className={`px-2 py-0.5 text-xs rounded border ${
+                          sol.estado === 'PENDIENTE' ? 'bg-amber-900/60 text-amber-300 border-amber-700' :
+                          sol.estado === 'APROBADA' ? 'bg-emerald-900/60 text-emerald-300 border-emerald-700' :
+                          'bg-rose-900/60 text-rose-300 border-rose-700'
+                        }`}>
+                          {sol.estado}
+                        </span>
+                      </td>
+                      <td className="p-2 text-center space-x-2">
+                        {sol.estado === 'PENDIENTE' && (
+                          <>
+                            <button
+                              onClick={() => handleApproveRequest(sol)}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-2.5 py-1 rounded"
+                            >
+                              Aprobar
+                            </button>
+                            <button
+                              onClick={() => handleRejectRequest(sol.id)}
+                              className="bg-rose-600 hover:bg-rose-500 text-white text-xs px-2.5 py-1 rounded"
+                            >
+                              Rechazar
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {/* Sección Tabla de Inventario */}
         <section className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <h2 className="text-xl font-semibold text-slate-200">Activos en Base de Datos</h2>
+            <h2 className="text-xl font-semibold text-slate-200">Catálogo de Activos CITT</h2>
             
-            {/* Buscador, Filtro y Botón Exportar */}
             <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
               <input
                 type="text"
@@ -278,12 +416,14 @@ export default function Home() {
                 <option value="MANTENIMIENTO">MANTENIMIENTO</option>
                 <option value="DEBAJA">DEBAJA</option>
               </select>
-              <button
-                onClick={handleExportCSV}
-                className="bg-emerald-700 hover:bg-emerald-600 text-white font-medium text-sm px-3 py-2 rounded flex items-center justify-center gap-1"
-              >
-                📥 Exportar Excel
-              </button>
+              {activeRole === 'ADMINISTRADOR' && (
+                <button
+                  onClick={handleExportCSV}
+                  className="bg-emerald-700 hover:bg-emerald-600 text-white font-medium text-sm px-3 py-2 rounded flex items-center justify-center gap-1"
+                >
+                  📥 Exportar Excel
+                </button>
+              )}
             </div>
           </div>
 
@@ -330,34 +470,55 @@ export default function Home() {
                         )}
                       </td>
                       <td className="p-2 text-center space-x-2">
-                        {item.estado === 'DISPONIBLE' && (
+                        {/* Permisos de Administrador y Alumno Líder */}
+                        {(activeRole === 'ADMINISTRADOR' || activeRole === 'ALUMNO_LIDER') && (
+                          <>
+                            {item.estado === 'DISPONIBLE' && (
+                              <button
+                                onClick={() => setLoanItem(item)}
+                                className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-2.5 py-1 rounded"
+                              >
+                                Prestar
+                              </button>
+                            )}
+                            {item.estado === 'PRESTADO' && (
+                              <button
+                                onClick={() => handleReturnLoan(item)}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-2.5 py-1 rounded"
+                              >
+                                Devolver
+                              </button>
+                            )}
+                          </>
+                        )}
+
+                        {/* Permisos exclusivos de Administrador */}
+                        {activeRole === 'ADMINISTRADOR' && (
+                          <>
+                            <button
+                              onClick={() => setEditingItem(item)}
+                              className="bg-amber-600 hover:bg-amber-500 text-white text-xs px-2.5 py-1 rounded"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item.id)}
+                              className="bg-rose-600 hover:bg-rose-500 text-white text-xs px-2.5 py-1 rounded"
+                            >
+                              Eliminar
+                            </button>
+                          </>
+                        )}
+
+                        {/* Permiso de Usuario Global (Solo Solicitar) */}
+                        {activeRole === 'USUARIO_GLOBAL' && item.estado === 'DISPONIBLE' && (
                           <button
-                            onClick={() => setLoanItem(item)}
-                            className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-2.5 py-1 rounded"
+                            onClick={() => setRequestItem(item)}
+                            className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-2.5 py-1 rounded"
                           >
-                            Prestar
+                            Solicitar Préstamo
                           </button>
                         )}
-                        {item.estado === 'PRESTADO' && (
-                          <button
-                            onClick={() => handleReturnLoan(item)}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-2.5 py-1 rounded"
-                          >
-                            Devolver
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setEditingItem(item)}
-                          className="bg-amber-600 hover:bg-amber-500 text-white text-xs px-2.5 py-1 rounded"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="bg-rose-600 hover:bg-rose-500 text-white text-xs px-2.5 py-1 rounded"
-                        >
-                          Eliminar
-                        </button>
                       </td>
                     </tr>
                   ))}
@@ -368,7 +529,45 @@ export default function Home() {
         </section>
       </div>
 
-      {/* Modal de Préstamo */}
+      {/* Modal de Solicitud (Usuario Global) */}
+      {requestItem && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md space-y-4">
+            <h3 className="text-xl font-bold text-slate-100">Crear Solicitud de Equipo</h3>
+            <p className="text-sm text-slate-400">Equipo: <span className="text-blue-300 font-medium">{requestItem.nombre}</span> ({requestItem.codigoSerie})</p>
+            <form onSubmit={handleCreateRequest} className="space-y-4">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Nombre Completo y Rut</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Estudiante Juan Pérez (Rut 21.000.000-0)"
+                  value={solicitanteInput}
+                  onChange={(e) => setSolicitanteInput(e.target.value)}
+                  className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-white text-sm"
+                  required
+                />
+              </div>
+              <div className="flex justify-end space-x-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRequestItem(null)}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-slate-300 text-sm"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded font-semibold text-white text-sm"
+                >
+                  Enviar Solicitud
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Préstamo Directo */}
       {loanItem && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md space-y-4">
