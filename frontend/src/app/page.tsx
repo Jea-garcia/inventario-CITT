@@ -120,6 +120,34 @@ export default function Home() {
     }
   };
 
+  // Exportar inventario a formato CSV
+  const handleExportCSV = () => {
+    if (filteredItems.length === 0) {
+      alert('No hay datos para exportar');
+      return;
+    }
+
+    const headers = ['Codigo Serie', 'Nombre', 'Categoria', 'Ubicacion', 'Estado', 'Asignado A', 'Descripcion'];
+    const rows = filteredItems.map((item) => [
+      `"${item.codigoSerie}"`,
+      `"${item.nombre}"`,
+      `"${item.categoria}"`,
+      `"${item.ubicacion || 'N/A'}"`,
+      `"${item.estado}"`,
+      `"${item.prestadoA || 'N/A'}"`,
+      `"${item.descripcion || 'Sin descripcion'}"`,
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `inventario_citt_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Filtrado dinámico en tiempo real
   const filteredItems = items.filter((item) => {
     const matchesSearch =
@@ -133,6 +161,12 @@ export default function Home() {
     return matchesSearch && matchesStatus;
   });
 
+  // Métricas calculadas en tiempo real
+  const totalEquipos = items.length;
+  const disponiblesCount = items.filter((i) => i.estado === 'DISPONIBLE').length;
+  const prestadosCount = items.filter((i) => i.estado === 'PRESTADO').length;
+  const mantenimientoCount = items.filter((i) => i.estado === 'MANTENIMIENTO').length;
+
   return (
     <main className="min-h-screen bg-slate-900 text-slate-100 p-8">
       <div className="max-w-6xl mx-auto space-y-8">
@@ -140,6 +174,26 @@ export default function Home() {
           <h1 className="text-3xl font-bold text-blue-400">Inventario CITT - Duoc UC</h1>
           <p className="text-slate-400">Gestión de activos, equipos y pañol</p>
         </header>
+
+        {/* Tarjetas KPI de Métricas */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+            <p className="text-xs text-slate-400 uppercase font-semibold">Total Activos</p>
+            <p className="text-2xl font-bold text-white mt-1">{totalEquipos}</p>
+          </div>
+          <div className="bg-slate-800 p-4 rounded-xl border border-emerald-900/50">
+            <p className="text-xs text-emerald-400 uppercase font-semibold">Disponibles</p>
+            <p className="text-2xl font-bold text-emerald-300 mt-1">{disponiblesCount}</p>
+          </div>
+          <div className="bg-slate-800 p-4 rounded-xl border border-amber-900/50">
+            <p className="text-xs text-amber-400 uppercase font-semibold">Prestados</p>
+            <p className="text-2xl font-bold text-amber-300 mt-1">{prestadosCount}</p>
+          </div>
+          <div className="bg-slate-800 p-4 rounded-xl border border-blue-900/50">
+            <p className="text-xs text-blue-400 uppercase font-semibold">En Mantenimiento</p>
+            <p className="text-2xl font-bold text-blue-300 mt-1">{mantenimientoCount}</p>
+          </div>
+        </div>
 
         {/* Formulario de Registro */}
         <form onSubmit={handleSubmit} className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
@@ -199,19 +253,19 @@ export default function Home() {
           </button>
         </form>
 
-        {/* Sección de Búsqueda y Tabla */}
+        {/* Sección de Búsqueda, Exportación y Tabla */}
         <section className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <h2 className="text-xl font-semibold text-slate-200">Activos en Base de Datos</h2>
             
-            {/* Buscador y Filtro */}
+            {/* Buscador, Filtro y Botón Exportar */}
             <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
               <input
                 type="text"
-                placeholder="🔍 Buscar por nombre, código, responsable..."
+                placeholder="🔍 Buscar por nombre, código..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="p-2 text-sm rounded bg-slate-900 border border-slate-700 text-white w-full sm:w-64"
+                className="p-2 text-sm rounded bg-slate-900 border border-slate-700 text-white w-full sm:w-56"
               />
               <select
                 value={statusFilter}
@@ -224,6 +278,12 @@ export default function Home() {
                 <option value="MANTENIMIENTO">MANTENIMIENTO</option>
                 <option value="DEBAJA">DEBAJA</option>
               </select>
+              <button
+                onClick={handleExportCSV}
+                className="bg-emerald-700 hover:bg-emerald-600 text-white font-medium text-sm px-3 py-2 rounded flex items-center justify-center gap-1"
+              >
+                📥 Exportar Excel
+              </button>
             </div>
           </div>
 
