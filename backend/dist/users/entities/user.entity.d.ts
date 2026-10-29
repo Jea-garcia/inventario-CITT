@@ -9,5 +9,7 @@ export declare class User {
     email: string;
     passwordHash: string;
     rol: UserRole;
+    activo: boolean;
+    debeCambiarPassword: boolean;
     fechaCreacion: Date;
 }

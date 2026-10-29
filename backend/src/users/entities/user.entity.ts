@@ -23,6 +23,14 @@ export class User {
   @Column({ type: 'enum', enum: UserRole, default: UserRole.USUARIO_GLOBAL })
   rol: UserRole;
 
+  // Las cuentas no se eliminan: se desactivan para conservar el historial
+  @Column({ type: 'boolean', default: true })
+  activo: boolean;
+
+  // true cuando el usuario tiene una clave temporal y debe cambiarla al ingresar
+  @Column({ type: 'boolean', default: false })
+  debeCambiarPassword: boolean;
+
   @CreateDateColumn()
   fechaCreacion: Date;
 }

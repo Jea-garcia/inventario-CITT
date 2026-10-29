@@ -2,15 +2,53 @@
 
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { getItems, createItem, updateItem, deleteItem, Item } from '@/services/api';
+import {
+  Package,
+  ClipboardList,
+  Printer,
+  Wrench,
+  AlertTriangle,
+  Plus,
+  MoreHorizontal,
+  QrCode,
+  Download,
+  Search,
+  Shield,
+  GraduationCap,
+  User,
+  Users,
+  LogOut,
+  Menu,
+  X,
+  Check,
+  CheckCircle2,
+  Info,
+  Pencil,
+  Archive,
+  Scissors,
+  KeyRound,
+  UserX,
+  UserCheck,
+  type LucideIcon,
+} from 'lucide-react';
+import { getItems, createItem, updateItem, Item } from '@/services/api';
 
 type UserRole = 'ADMINISTRADOR' | 'ALUMNO_LIDER' | 'USUARIO_GLOBAL';
-type Tab = 'STOCK' | 'SOLICITUDES' | 'FILAMENTO' | 'MANTENIMIENTO' | 'ALERTAS';
+type Tab = 'STOCK' | 'SOLICITUDES' | 'FILAMENTO' | 'MANTENIMIENTO' | 'ALERTAS' | 'USUARIOS';
 
 interface UserSession {
   nombre: string;
   email: string;
   rol: UserRole;
+}
+
+interface UsuarioGestion {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: UserRole;
+  escuela: string;
+  estado: 'ACTIVO' | 'INACTIVO';
 }
 
 interface SolicitudLocal {
@@ -44,6 +82,70 @@ const ESCUELAS_DUOC = [
   'Recursos Naturales',
 ];
 
+// Categorías y prefijos oficiales
+const CATEGORIAS = [
+  { nombre: 'Equipamiento', prefijo: 'EQ-CITT-' },
+  { nombre: 'Mobiliario', prefijo: 'IM-CITT-' },
+  { nombre: '3D', prefijo: '3D-CITT-' },
+  { nombre: 'Talleres', prefijo: 'TA-CITT-' },
+];
+
+// Navegación lateral con iconos
+const NAV: { tab: Tab; label: string; icon: LucideIcon; adminOnly?: boolean }[] = [
+  { tab: 'STOCK', label: 'Catálogo y Stock', icon: Package },
+  { tab: 'SOLICITUDES', label: 'Solicitudes', icon: ClipboardList },
+  { tab: 'FILAMENTO', label: 'Filamento 3D (g/kg)', icon: Printer },
+  { tab: 'MANTENIMIENTO', label: 'Mantenimiento (OT)', icon: Wrench },
+  { tab: 'ALERTAS', label: 'Alertas', icon: AlertTriangle },
+  { tab: 'USUARIOS', label: 'Gestión de Usuarios', icon: Users, adminOnly: true },
+];
+
+const TITULOS: Record<Tab, string> = {
+  STOCK: 'Gestión de Activos e Inventario',
+  SOLICITUDES: 'Solicitudes y Registro por Escuela',
+  FILAMENTO: 'Módulo Especial: Consumibles y Filamento 3D',
+  MANTENIMIENTO: 'Gestión de Órdenes de Trabajo (OT)',
+  ALERTAS: 'Centro de Alertas y Stock Crítico',
+  USUARIOS: 'Administración de Usuarios y Permisos',
+};
+
+// Cuentas demo
+const CUENTAS_DEMO = [
+  { rol: 'Administrador', email: 'admin@duoc.cl', pass: 'admin', icon: Shield },
+  { rol: 'Alumno Líder', email: 'lider@duoc.cl', pass: 'lider', icon: GraduationCap },
+  { rol: 'Usuario Global', email: 'alumno@duoc.cl', pass: 'alumno', icon: User },
+];
+
+const CAPACIDAD_REF_G = 10000;
+
+const siguienteCodigo = (prefijo: string, lista: Item[]) => {
+  const max = lista
+    .filter((i) => i.codigoSerie.startsWith(prefijo))
+    .reduce((m, i) => {
+      const n = parseInt(i.codigoSerie.slice(prefijo.length), 10);
+      return isNaN(n) ? m : Math.max(m, n);
+    }, 0);
+  return `${prefijo}${String(max + 1).padStart(3, '0')}`;
+};
+
+function BarraStock({ gramos, minimo }: { gramos: number; minimo: number }) {
+  const pct = Math.min(100, Math.max(0, (gramos / CAPACIDAD_REF_G) * 100));
+  const minPct = Math.min(100, (minimo / CAPACIDAD_REF_G) * 100);
+  const color = gramos <= minimo ? 'bg-rose-500' : pct < 30 ? 'bg-amber-400' : 'bg-emerald-500';
+  return (
+    <div
+      className="relative h-2 w-full bg-slate-700 rounded-full overflow-hidden"
+      role="progressbar"
+      aria-valuenow={Math.round(pct)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
+      <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: `${minPct}%` }} />
+    </div>
+  );
+}
+
 export default function Home() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,11 +156,27 @@ export default function Home() {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [showDemo, setShowDemo] = useState(false);
 
   // Menú Hamburguesa Móvil
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Solicitudes con Selección de Escuela
+  // Módulo de Usuarios
+  const [usuariosList, setUsuariosList] = useState<UsuarioGestion[]>([
+    { id: 'usr-1', nombre: 'Paz Constanza Morales Saavedra', email: 'admin@duoc.cl', rol: 'ADMINISTRADOR', escuela: 'Informática y Telecomunicaciones', estado: 'ACTIVO' },
+    { id: 'usr-2', nombre: 'Juan Pérez (Alumno Líder)', email: 'lider@duoc.cl', rol: 'ALUMNO_LIDER', escuela: 'Informática y Telecomunicaciones', estado: 'ACTIVO' },
+    { id: 'usr-3', nombre: 'Estudiante Duoc UC', email: 'alumno@duoc.cl', rol: 'USUARIO_GLOBAL', escuela: 'Construcción', estado: 'ACTIVO' },
+  ]);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [editingUsuario, setEditingUsuario] = useState<UsuarioGestion | null>(null);
+  const [formUser, setFormUser] = useState({
+    nombre: '',
+    email: '',
+    rol: 'USUARIO_GLOBAL' as UserRole,
+    escuela: ESCUELAS_DUOC[0],
+  });
+
+  // Solicitudes
   const [solicitudes, setSolicitudes] = useState<SolicitudLocal[]>([]);
   const [requestItem, setRequestItem] = useState<Item | null>(null);
   const [solicitanteInput, setSolicitanteInput] = useState('');
@@ -67,7 +185,7 @@ export default function Home() {
   // Modal QR
   const [qrItem, setQrItem] = useState<Item | null>(null);
 
-  // Mantenimiento OT con arreglo inicial seguro sin hidratación
+  // Mantenimiento OT
   const [ordenesTrabajo, setOrdenesTrabajo] = useState<OrdenTrabajo[]>([
     {
       id: 'ot-1',
@@ -75,7 +193,7 @@ export default function Home() {
       equipoNombre: 'Notebook Lenovo',
       tipo: 'CORRECTIVO',
       estadoOT: 'En proceso',
-      responsable: 'CIT',
+      responsable: 'CITT',
       comentario: 'cambio de batería',
       fecha: '2026-10-28',
     },
@@ -96,10 +214,11 @@ export default function Home() {
   const [statusFilter, setStatusFilter] = useState<string>('TODOS');
 
   // Formulario Activo
+  const [showNewModal, setShowNewModal] = useState(false);
   const [form, setForm] = useState({
     nombre: '',
     codigoSerie: 'EQ-CITT-001',
-    categoria: 'Computadores',
+    categoria: 'Equipamiento',
     ubicacion: 'Casillero A-1',
     estado: 'DISPONIBLE' as Item['estado'],
     descripcion: '',
@@ -110,6 +229,13 @@ export default function Home() {
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [loanItem, setLoanItem] = useState<Item | null>(null);
   const [prestadoAInput, setPrestadoAInput] = useState('');
+
+  // Dar de baja
+  const [bajaItem, setBajaItem] = useState<Item | null>(null);
+  const [motivoBaja, setMotivoBaja] = useState('');
+
+  // Menú "⋯"
+  const [rowMenu, setRowMenu] = useState<{ item: Item; top: number; left: number } | null>(null);
 
   const loadItems = async () => {
     try {
@@ -126,42 +252,106 @@ export default function Home() {
     loadItems();
   }, []);
 
-  // Autogenerar Código por Categoría
-  const handleCategoryChange = (cat: string) => {
-    let prefijo = 'EQ-CITT-';
-    if (cat === 'Impresoras 3D') prefijo = 'IM-CITT-';
-    if (cat === 'Filamentos / Consumibles') prefijo = '3D-CITT-';
-    if (cat === 'Herramientas') prefijo = 'TA-CITT-';
-
-    const count = items.filter((i) => i.categoria === cat).length + 1;
-    const autoCodigo = `${prefijo}${String(count).padStart(3, '0')}`;
-
-    setForm({
-      ...form,
-      categoria: cat,
-      codigoSerie: autoCodigo,
-      esConsumible: cat === 'Filamentos / Consumibles',
+  useEffect(() => {
+    setForm((f) => {
+      const prefijo = CATEGORIAS.find((c) => c.nombre === f.categoria)?.prefijo ?? 'EQ-CITT-';
+      return { ...f, codigoSerie: siguienteCodigo(prefijo, items) };
     });
+  }, [items]);
+
+  const handleCategoryChange = (cat: string) => {
+    const prefijo = CATEGORIAS.find((c) => c.nombre === cat)?.prefijo ?? 'EQ-CITT-';
+    setForm({ ...form, categoria: cat, codigoSerie: siguienteCodigo(prefijo, items) });
   };
 
-  // Login
+  // LOGIN DINÁMICO
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
 
-    if (loginEmail === 'admin@duoc.cl' && loginPass === 'admin') {
+    const emailClean = loginEmail.toLowerCase().trim();
+
+    // 1. Cuentas demo
+    if (emailClean === 'admin@duoc.cl' && loginPass === 'admin') {
       setUserSession({ nombre: 'Administrador CITT', email: loginEmail, rol: 'ADMINISTRADOR' });
-    } else if (loginEmail === 'lider@duoc.cl' && loginPass === 'lider') {
+      return;
+    } 
+    if (emailClean === 'lider@duoc.cl' && loginPass === 'lider') {
       setUserSession({ nombre: 'Alumno Líder Pañol', email: loginEmail, rol: 'ALUMNO_LIDER' });
-    } else if (loginEmail === 'alumno@duoc.cl' && loginPass === 'alumno') {
+      return;
+    } 
+    if (emailClean === 'alumno@duoc.cl' && loginPass === 'alumno') {
       setUserSession({ nombre: 'Estudiante Duoc UC', email: loginEmail, rol: 'USUARIO_GLOBAL' });
-    } else {
-      setLoginError('Credenciales incorrectas.');
+      return;
     }
+
+    // 2. Usuarios creados dinámicamente en el módulo
+    const usuarioEncontrado = usuariosList.find(
+      (u) => u.email.toLowerCase().trim() === emailClean
+    );
+
+    if (usuarioEncontrado) {
+      if (usuarioEncontrado.estado === 'INACTIVO') {
+        setLoginError('Esta cuenta se encuentra desactivada por el Administrador.');
+        return;
+      }
+
+      // Permite la clave 'Duoc2026!' o cualquier clave de 4 o más caracteres
+      if (loginPass === 'Duoc2026!' || loginPass.length >= 4) {
+        setUserSession({
+          nombre: usuarioEncontrado.nombre,
+          email: usuarioEncontrado.email,
+          rol: usuarioEncontrado.rol,
+        });
+        return;
+      }
+    }
+
+    setLoginError('Credenciales incorrectas.');
   };
 
   const handleLogout = () => {
     setUserSession(null);
+    setLoginEmail('');
+    setLoginPass('');
+    setShowDemo(false);
+    setRowMenu(null);
+  };
+
+  // Funciones Módulo Usuarios
+  const handleSaveUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formUser.nombre || !formUser.email) return;
+
+    if (editingUsuario) {
+      setUsuariosList(
+        usuariosList.map((u) =>
+          u.id === editingUsuario.id ? { ...u, ...formUser } : u
+        )
+      );
+      setEditingUsuario(null);
+    } else {
+      const nuevo: UsuarioGestion = {
+        id: `usr-${Date.now()}`,
+        ...formUser,
+        estado: 'ACTIVO',
+      };
+      setUsuariosList([nuevo, ...usuariosList]);
+    }
+
+    setFormUser({ nombre: '', email: '', rol: 'USUARIO_GLOBAL', escuela: ESCUELAS_DUOC[0] });
+    setShowUserModal(false);
+  };
+
+  const handleResetPassword = (u: UsuarioGestion) => {
+    alert(`🔑 Contraseña restablecida exitosamente para el usuario ${u.nombre}.\n\nClave temporal asignada: Duoc2026!`);
+  };
+
+  const handleToggleStateUser = (u: UsuarioGestion) => {
+    const nuevoEstado = u.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO';
+    setUsuariosList(
+      usuariosList.map((item) => (item.id === u.id ? { ...item, estado: nuevoEstado } : item))
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -172,26 +362,38 @@ export default function Home() {
       setForm({
         nombre: '',
         codigoSerie: 'EQ-CITT-001',
-        categoria: 'Computadores',
+        categoria: 'Equipamiento',
         ubicacion: 'Casillero A-1',
         estado: 'DISPONIBLE',
         descripcion: '',
         esConsumible: false,
         cantidadGramos: 10000,
       });
+      setShowNewModal(false);
       loadItems();
     } catch (err) {
       alert('Error guardando el activo');
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar activo del inventario?')) return;
+  const handleConfirmBaja = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bajaItem || !motivoBaja.trim()) return;
+
+    const fecha = new Date().toISOString().split('T')[0];
+    const notaBaja = `[BAJA ${fecha}] ${motivoBaja.trim()}`;
+
     try {
-      await deleteItem(id);
+      await updateItem(bajaItem.id, {
+        estado: 'DEBAJA',
+        prestadoA: '',
+        descripcion: bajaItem.descripcion ? `${bajaItem.descripcion} | ${notaBaja}` : notaBaja,
+      });
+      setBajaItem(null);
+      setMotivoBaja('');
       loadItems();
     } catch (err) {
-      alert('Error al eliminar');
+      alert('Error al dar de baja el activo');
     }
   };
 
@@ -353,18 +555,35 @@ export default function Home() {
     link.click();
   };
 
+  const openRowMenu = (e: React.MouseEvent<HTMLButtonElement>, item: Item) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const MENU_W = 176;
+    const MENU_H = 132;
+    const top = rect.bottom + MENU_H + 8 > window.innerHeight ? rect.top - MENU_H - 4 : rect.bottom + 4;
+    const left = Math.max(8, rect.right - MENU_W);
+    setRowMenu({ item, top, left });
+  };
+
+  const filamentosBajos = items.filter(
+    (i) => i.esConsumible && i.estado !== 'DEBAJA' && (i.cantidadGramos || 0) <= (i.stockMinimoGramos || 1000)
+  );
+  const idsCriticos = new Set(filamentosBajos.map((f) => f.id));
+
   const filteredItems = items.filter((item) => {
     const matchesSearch =
       item.nombre.toLowerCase().includes(search.toLowerCase()) ||
       item.codigoSerie.toLowerCase().includes(search.toLowerCase()) ||
       item.categoria.toLowerCase().includes(search.toLowerCase()) ||
       (item.descripcion && item.descripcion.toLowerCase().includes(search.toLowerCase()));
-    const matchesStatus = statusFilter === 'TODOS' || item.estado === statusFilter;
+    const matchesStatus =
+      statusFilter === 'TODOS' ||
+      (statusFilter === 'VIGENTES' && item.estado !== 'DEBAJA') ||
+      (statusFilter === 'CRITICO' && idsCriticos.has(item.id)) ||
+      item.estado === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  const filamentosBajos = items.filter((i) => i.esConsumible && (i.cantidadGramos || 0) <= (i.stockMinimoGramos || 1000));
-
+  // LOGIN
   if (!userSession) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -375,12 +594,16 @@ export default function Home() {
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
-            {loginError && <div className="bg-rose-950/80 border border-rose-800 text-rose-300 p-3 rounded text-xs text-center">{loginError}</div>}
+            {loginError && (
+              <div className="bg-rose-950/80 border border-rose-800 text-rose-300 p-3 rounded text-xs text-center">
+                {loginError}
+              </div>
+            )}
             <div>
               <label className="text-xs text-slate-400 block mb-1">Correo Institucional</label>
               <input
                 type="email"
-                placeholder="admin@duoc.cl / lider@duoc.cl / alumno@duoc.cl"
+                placeholder="correo@duoc.cl"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
                 className="w-full p-2.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-sm"
@@ -403,24 +626,66 @@ export default function Home() {
             </button>
           </form>
 
-          <div className="border-t border-slate-700/60 pt-4 text-xs text-slate-400 space-y-1">
-            <p className="font-semibold text-slate-300">Cuentas de Prueba:</p>
-            <p>🛡️ Admin: <code className="text-blue-300">admin@duoc.cl</code> / <code className="text-slate-300">admin</code></p>
-            <p>🎓 Líder: <code className="text-blue-300">lider@duoc.cl</code> / <code className="text-slate-300">lider</code></p>
-            <p>👤 Alumno: <code className="text-blue-300">alumno@duoc.cl</code> / <code className="text-slate-300">alumno</code></p>
+          <p className="text-[11px] text-center text-slate-500 italic">
+            ¿Olvidaste tu contraseña? Solicita el restablecimiento al Administrador CITT.
+          </p>
+
+          <div className="border-t border-slate-700/60 pt-4 space-y-3">
+            <button
+              type="button"
+              onClick={() => setShowDemo(!showDemo)}
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 mx-auto"
+            >
+              <Info size={14} />
+              {showDemo ? 'Ocultar cuentas demo' : 'Ver cuentas demo'}
+            </button>
+
+            {showDemo && (
+              <div className="space-y-2">
+                {CUENTAS_DEMO.map(({ rol, email, pass, icon: Icon }) => (
+                  <button
+                    key={email}
+                    type="button"
+                    onClick={() => {
+                      setLoginEmail(email);
+                      setLoginPass(pass);
+                      setLoginError('');
+                    }}
+                    className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-slate-900 border border-slate-700 hover:border-blue-500 text-left"
+                  >
+                    <Icon size={16} className="text-blue-300 shrink-0" />
+                    <span className="flex-1">
+                      <span className="block text-xs font-semibold text-slate-200">{rol}</span>
+                      <span className="block text-[11px] font-mono text-slate-400">{email} / {pass}</span>
+                    </span>
+                    <span className="text-[10px] text-slate-500">Usar</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
     );
   }
 
+  // APP PRINCIPAL
   const activeRole = userSession.rol;
+  const canManageLoans = activeRole === 'ADMINISTRADOR' || activeRole === 'ALUMNO_LIDER';
+  const pendientes = solicitudes.filter((s) => s.estado === 'PENDIENTE').length;
+  const ActiveIcon = NAV.find((n) => n.tab === activeTab)?.icon || Package;
 
-  // KPIs
-  const totalActivos = items.length;
+  const totalActivos = items.filter((i) => i.estado !== 'DEBAJA').length;
   const totalPrestados = items.filter((i) => i.estado === 'PRESTADO').length;
   const totalMantenimiento = items.filter((i) => i.estado === 'MANTENIMIENTO').length;
   const totalAlertas = filamentosBajos.length;
+
+  const kpis = [
+    { key: 'VIGENTES', label: 'Total Activos', value: totalActivos, color: 'text-blue-400' },
+    { key: 'PRESTADO', label: 'En Préstamo', value: totalPrestados, color: 'text-amber-400' },
+    { key: 'MANTENIMIENTO', label: 'En Mantenimiento (OT)', value: totalMantenimiento, color: 'text-indigo-400' },
+    { key: 'CRITICO', label: 'Stock Crítico', value: totalAlertas, color: 'text-rose-400' },
+  ];
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-900 text-slate-100">
@@ -430,7 +695,13 @@ export default function Home() {
           <h1 className="text-lg font-bold text-blue-400">CITT Stock</h1>
           <p className="text-xs text-slate-400">Duoc UC • Pañol Digital</p>
         </div>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 rounded bg-slate-700 text-slate-200 text-xl">☰</button>
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          aria-label="Abrir menú"
+          className="p-2 rounded bg-slate-700 text-slate-200"
+        >
+          {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
       </div>
 
       {/* Sidebar */}
@@ -442,17 +713,27 @@ export default function Home() {
           </div>
 
           <nav className="space-y-2">
-            <button onClick={() => { setActiveTab('STOCK'); setIsMobileMenuOpen(false); }} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === 'STOCK' ? 'bg-blue-600 text-white' : 'hover:bg-slate-700 text-slate-300'}`}>📦 Catálogo y Stock</button>
-            <button onClick={() => { setActiveTab('SOLICITUDES'); setIsMobileMenuOpen(false); }} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition flex justify-between items-center ${activeTab === 'SOLICITUDES' ? 'bg-blue-600 text-white' : 'hover:bg-slate-700 text-slate-300'}`}>
-              <span>📌 Solicitudes</span>
-              {solicitudes.filter((s) => s.estado === 'PENDIENTE').length > 0 && <span className="bg-amber-500 text-slate-900 text-xs px-2 py-0.5 rounded-full font-bold">{solicitudes.filter((s) => s.estado === 'PENDIENTE').length}</span>}
-            </button>
-            <button onClick={() => { setActiveTab('FILAMENTO'); setIsMobileMenuOpen(false); }} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === 'FILAMENTO' ? 'bg-blue-600 text-white' : 'hover:bg-slate-700 text-slate-300'}`}>🧵 Filamento 3D (g/kg)</button>
-            <button onClick={() => { setActiveTab('MANTENIMIENTO'); setIsMobileMenuOpen(false); }} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === 'MANTENIMIENTO' ? 'bg-blue-600 text-white' : 'hover:bg-slate-700 text-slate-300'}`}>🛠️ Mantenimiento (OT)</button>
-            <button onClick={() => { setActiveTab('ALERTAS'); setIsMobileMenuOpen(false); }} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition flex justify-between items-center ${activeTab === 'ALERTAS' ? 'bg-blue-600 text-white' : 'hover:bg-slate-700 text-slate-300'}`}>
-              <span>⚠️ Alertas</span>
-              {filamentosBajos.length > 0 && <span className="bg-rose-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">{filamentosBajos.length}</span>}
-            </button>
+            {NAV.map(({ tab, label, icon: Icon, adminOnly }) => {
+              if (adminOnly && activeRole !== 'ADMINISTRADOR') return null;
+              const badge = tab === 'SOLICITUDES' ? pendientes : tab === 'ALERTAS' ? filamentosBajos.length : 0;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => { setActiveTab(tab); setIsMobileMenuOpen(false); }}
+                  className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition flex items-center gap-3 ${
+                    activeTab === tab ? 'bg-blue-600 text-white' : 'hover:bg-slate-700 text-slate-300'
+                  }`}
+                >
+                  <Icon size={18} className="shrink-0" />
+                  <span className="flex-1">{label}</span>
+                  {badge > 0 && (
+                    <span className={`${tab === 'ALERTAS' ? 'bg-rose-500 text-white' : 'bg-amber-500 text-slate-900'} text-xs px-2 py-0.5 rounded-full font-bold`}>
+                      {badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </nav>
         </div>
 
@@ -462,184 +743,121 @@ export default function Home() {
             <p className="text-xs text-white font-bold truncate">{userSession.nombre}</p>
             <span className="text-[10px] bg-blue-900/60 text-blue-300 border border-blue-700 px-1.5 py-0.5 rounded uppercase font-semibold">{userSession.rol}</span>
           </div>
-          <button onClick={handleLogout} className="w-full bg-rose-900/50 hover:bg-rose-800 border border-rose-700 text-rose-200 text-xs py-1.5 rounded">Cerrar Sesión</button>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-1.5 bg-rose-900/50 hover:bg-rose-800 border border-rose-700 text-rose-200 text-xs py-1.5 rounded"
+          >
+            <LogOut size={14} /> Cerrar Sesión
+          </button>
         </div>
       </aside>
 
       {/* Contenido Principal */}
-      <main className="flex-1 p-8 overflow-y-auto">
-       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 mb-6 border-b border-slate-800">
+      <main className="flex-1 p-8 overflow-y-auto min-w-0">
+        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 mb-6 border-b border-slate-800">
           <div>
             <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-              {activeTab === 'STOCK' && '📦 Gestión de Activos e Inventario'}
-              {activeTab === 'SOLICITUDES' && '📌 Solicitudes y Registro por Escuela'}
-              {activeTab === 'FILAMENTO' && '🧵 Módulo Especial: Consumibles y Filamento 3D'}
-              {activeTab === 'MANTENIMIENTO' && '🛠️ Gestión de Órdenes de Trabajo (OT)'}
-              {activeTab === 'ALERTAS' && '⚠️ Centro de Alertas y Stock Crítico'}
+              <ActiveIcon size={24} className="text-blue-400 shrink-0" />
+              {TITULOS[activeTab]}
             </h2>
             <p className="text-sm text-slate-400 mt-1">
               Perfil en uso: <span className="text-blue-400 font-semibold">{activeRole}</span>
             </p>
           </div>
 
-          {/* Tarjeta de Logos Institucionales Integrada */}
           <div className="flex items-center gap-4 bg-slate-800/80 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-700/80 shadow-xl self-end sm:self-auto">
             <div className="bg-white p-1.5 rounded-lg flex items-center justify-center">
-              <img 
-                src="/duoc-logo.png" 
-                alt="Duoc UC" 
-                className="h-6 object-contain" 
+              <img
+                src="/duoc-logo.png"
+                alt="Duoc UC"
+                className="h-6 object-contain"
               />
             </div>
             <div className="h-6 w-[1px] bg-slate-700"></div>
             <div className="flex items-center gap-2">
-              <img 
-                src="/citt-logo.png" 
-                alt="CITT" 
-                className="h-7 w-7 object-contain drop-shadow" 
+              <img
+                src="/citt-logo.png"
+                alt="CITT"
+                className="h-7 w-7 object-contain drop-shadow"
               />
-              <span className="text-xs font-black tracking-wider text-slate-200 uppercase"></span>
             </div>
           </div>
         </header>
 
-        {/* Dashboard KPIs */}
+        {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-slate-800 border border-slate-700 p-4 rounded-xl flex flex-col justify-between">
-            <p className="text-xs text-slate-400 font-semibold">Total Activos</p>
-            <p className="text-2xl font-black text-blue-400 mt-1">{totalActivos}</p>
-          </div>
-          <div className="bg-slate-800 border border-slate-700 p-4 rounded-xl flex flex-col justify-between">
-            <p className="text-xs text-slate-400 font-semibold">En Préstamo</p>
-            <p className="text-2xl font-black text-amber-400 mt-1">{totalPrestados}</p>
-          </div>
-          <div className="bg-slate-800 border border-slate-700 p-4 rounded-xl flex flex-col justify-between">
-            <p className="text-xs text-slate-400 font-semibold">En Mantenimiento (OT)</p>
-            <p className="text-2xl font-black text-indigo-400 mt-1">{totalMantenimiento}</p>
-          </div>
-          <div className="bg-slate-800 border border-slate-700 p-4 rounded-xl flex flex-col justify-between">
-            <p className="text-xs text-slate-400 font-semibold">Stock Crítico</p>
-            <p className="text-2xl font-black text-rose-400 mt-1">{totalAlertas}</p>
-          </div>
+          {kpis.map((k) => {
+            const selected = activeTab === 'STOCK' && statusFilter === k.key;
+            return (
+              <button
+                key={k.key}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => {
+                  setActiveTab('STOCK');
+                  setStatusFilter(k.key);
+                  setSearch('');
+                }}
+                className={`bg-slate-800 border p-4 rounded-xl flex flex-col justify-between text-left transition ${
+                  selected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-700 hover:border-slate-500'
+                }`}
+              >
+                <p className="text-xs text-slate-400 font-semibold">{k.label}</p>
+                <p className={`text-2xl font-black mt-1 ${k.color}`}>{k.value}</p>
+              </button>
+            );
+          })}
         </div>
 
         {/* PESTAÑA 1: CATÁLOGO */}
         {activeTab === 'STOCK' && (
-          <div className="space-y-8">
-            {activeRole === 'ADMINISTRADOR' && (
-              <form onSubmit={handleSubmit} className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
-                <h3 className="text-lg font-semibold text-slate-200">Registrar Nuevo Activo o Consumible</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-xs text-slate-400 block mb-1">Categoría del Equipo</label>
-                    <select
-                      value={form.categoria}
-                      onChange={(e) => handleCategoryChange(e.target.value)}
-                      className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-sm"
-                    >
-                      <option value="Computadores">Computadores (EQ-CITT-)</option>
-                      <option value="Impresoras 3D">Impresoras 3D (IM-CITT-)</option>
-                      <option value="Filamentos / Consumibles">Filamentos (3D-CITT-)</option>
-                      <option value="Herramientas">Herramientas (TA-CITT-)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-slate-400 block mb-1">Código de Serie (Autogenerado)</label>
-                    <input
-                      type="text"
-                      value={form.codigoSerie}
-                      onChange={(e) => setForm({ ...form, codigoSerie: e.target.value })}
-                      className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-sm font-mono text-blue-300 font-bold"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-slate-400 block mb-1">Nombre del Activo</label>
-                    <input
-                      type="text"
-                      placeholder="Ej: Laptop Lenovo / Filamento PLA"
-                      value={form.nombre}
-                      onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-                      className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-sm"
-                      required
-                    />
-                  </div>
-
+          <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
+            <div className="flex flex-col lg:flex-row justify-between gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                <div className="relative w-full sm:w-72">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
                     type="text"
-                    placeholder="Ubicación / Casillero (ej: Rack nivel 2)"
-                    value={form.ubicacion}
-                    onChange={(e) => setForm({ ...form, ubicacion: e.target.value })}
-                    className="p-2 rounded bg-slate-900 border border-slate-700 text-sm"
-                  />
-
-                  <select
-                    value={form.estado}
-                    onChange={(e) => setForm({ ...form, estado: e.target.value as Item['estado'] })}
-                    className="p-2 rounded bg-slate-900 border border-slate-700 text-sm text-white"
-                  >
-                    <option value="DISPONIBLE">DISPONIBLE</option>
-                    <option value="PRESTADO">PRESTADO</option>
-                    <option value="MANTENIMIENTO">MANTENIMIENTO</option>
-                    <option value="DEBAJA">DEBAJA</option>
-                  </select>
-
-                  <input
-                    type="text"
-                    placeholder="Comentario / Nota (ej: Batería mala)"
-                    value={form.descripcion}
-                    onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-                    className="p-2 rounded bg-slate-900 border border-slate-700 text-sm"
-                  />
-
-                  {form.esConsumible && (
-                    <input
-                      type="number"
-                      placeholder="Gramos Iniciales (10000 g = 10 kg)"
-                      value={form.cantidadGramos}
-                      onChange={(e) => setForm({ ...form, cantidadGramos: parseFloat(e.target.value) })}
-                      className="p-2 rounded bg-slate-900 border border-slate-700 text-sm"
-                    />
-                  )}
-                </div>
-                <button type="submit" className="bg-blue-600 hover:bg-blue-500 font-semibold px-4 py-2 rounded text-sm">
-                  Guardar Activo
-                </button>
-              </form>
-            )}
-
-            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
-              <div className="flex flex-col sm:flex-row justify-between gap-4">
-                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                  <input
-                    type="text"
-                    placeholder="🔍 Buscar por código, nombre, notas..."
+                    placeholder="Buscar por código, nombre, notas..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="p-2 rounded bg-slate-900 border border-slate-700 text-sm w-full sm:w-64"
+                    className="pl-9 pr-3 py-2 rounded bg-slate-900 border border-slate-700 text-sm w-full"
                   />
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="p-2 rounded bg-slate-900 border border-slate-700 text-sm text-white"
-                  >
-                    <option value="TODOS">Todos los estados</option>
-                    <option value="DISPONIBLE">DISPONIBLE</option>
-                    <option value="PRESTADO">PRESTADO</option>
-                    <option value="MANTENIMIENTO">MANTENIMIENTO</option>
-                    <option value="DEBAJA">DEBAJA</option>
-                  </select>
                 </div>
-
-                {activeRole === 'ADMINISTRADOR' && (
-                  <button onClick={handleExportCSV} className="bg-emerald-700 hover:bg-emerald-600 text-sm px-3 py-2 rounded">
-                    📥 Exportar Excel
-                  </button>
-                )}
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="p-2 rounded bg-slate-900 border border-slate-700 text-sm text-white"
+                >
+                  <option value="TODOS">Todos los estados</option>
+                  <option value="VIGENTES">Activos vigentes (sin bajas)</option>
+                  <option value="DISPONIBLE">DISPONIBLE</option>
+                  <option value="PRESTADO">PRESTADO</option>
+                  <option value="MANTENIMIENTO">MANTENIMIENTO</option>
+                  <option value="CRITICO">STOCK CRÍTICO</option>
+                  <option value="DEBAJA">DEBAJA</option>
+                </select>
               </div>
 
+              {activeRole === 'ADMINISTRADOR' && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowNewModal(true)}
+                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-3 py-2 rounded"
+                  >
+                    <Plus size={16} /> Nuevo activo
+                  </button>
+                  <button
+                    onClick={handleExportCSV}
+                    className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-600 text-sm px-3 py-2 rounded"
+                  >
+                    <Download size={16} /> Exportar Excel
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-700 text-slate-400">
@@ -654,24 +872,51 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody>
+                  {loading && (
+                    <tr>
+                      <td colSpan={8} className="p-6 text-center text-slate-400 text-sm">Cargando inventario...</td>
+                    </tr>
+                  )}
+
+                  {!loading && filteredItems.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-slate-400 text-sm">
+                        No hay activos que coincidan con el filtro.{' '}
+                        <button
+                          onClick={() => { setSearch(''); setStatusFilter('TODOS'); }}
+                          className="text-blue-400 hover:underline"
+                        >
+                          Limpiar filtros
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+
                   {filteredItems.map((item) => (
                     <tr key={item.id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
                       <td className="p-2">
                         <button
                           onClick={() => setQrItem(item)}
-                          className="p-1.5 bg-slate-900 hover:bg-slate-700 rounded border border-slate-700 text-xs text-blue-300 font-semibold"
+                          className="flex items-center gap-1 p-1.5 bg-slate-900 hover:bg-slate-700 rounded border border-slate-700 text-xs text-blue-300 font-semibold"
                         >
-                          📱 Ver QR
+                          <QrCode size={14} /> Ver QR
                         </button>
                       </td>
                       <td className="p-2 font-mono text-blue-300 font-bold">{item.codigoSerie}</td>
                       <td className="p-2 font-medium">{item.nombre}</td>
                       <td className="p-2 text-slate-400">{item.ubicacion || 'Sin Casillero'}</td>
                       <td className="p-2">
-                        {item.esConsumible ? (
-                          <span className="text-amber-300 font-bold">
-                            {((item.cantidadGramos || 0) / 1000).toFixed(2)} kg ({item.cantidadGramos} g)
+                        {item.estado === 'DEBAJA' ? (
+                          <span className="px-2 py-0.5 text-xs rounded border bg-rose-900/60 text-rose-300 border-rose-700">
+                            DEBAJA
                           </span>
+                        ) : item.esConsumible ? (
+                          <div className="w-32 space-y-1">
+                            <span className="text-amber-300 font-bold text-sm">
+                              {((item.cantidadGramos || 0) / 1000).toFixed(2)} kg ({item.cantidadGramos} g)
+                            </span>
+                            <BarraStock gramos={item.cantidadGramos || 0} minimo={item.stockMinimoGramos || 1000} />
+                          </div>
                         ) : (
                           <span className={`px-2 py-0.5 text-xs rounded border ${
                             item.estado === 'DISPONIBLE' ? 'bg-emerald-900/60 text-emerald-300 border-emerald-700' :
@@ -685,23 +930,36 @@ export default function Home() {
                       </td>
                       <td className="p-2 text-slate-300 text-xs italic">{item.descripcion || '-'}</td>
                       <td className="p-2 text-slate-300">{item.prestadoA || '-'}</td>
-                      <td className="p-2 text-center space-x-2">
-                        {(activeRole === 'ADMINISTRADOR' || activeRole === 'ALUMNO_LIDER') && !item.esConsumible && (
-                          item.estado === 'DISPONIBLE' ? (
-                            <button onClick={() => setLoanItem(item)} className="bg-indigo-600 px-2 py-1 rounded text-xs">Prestar</button>
-                          ) : (
-                            <button onClick={() => handleReturnLoan(item)} className="bg-emerald-600 px-2 py-1 rounded text-xs">Devolver</button>
-                          )
-                        )}
-                        {activeRole === 'USUARIO_GLOBAL' && item.estado === 'DISPONIBLE' && !item.esConsumible && (
-                          <button onClick={() => setRequestItem(item)} className="bg-blue-600 px-2 py-1 rounded text-xs">Solicitar</button>
-                        )}
-                        {activeRole === 'ADMINISTRADOR' && (
-                          <>
-                            <button onClick={() => setOtItem(item)} className="bg-amber-600 px-2 py-1 rounded text-xs">Crear OT</button>
-                            <button onClick={() => setEditingItem(item)} className="bg-indigo-600 px-2 py-1 rounded text-xs">Editar</button>
-                            <button onClick={() => handleDelete(item.id)} className="bg-rose-600 px-2 py-1 rounded text-xs">Eliminar</button>
-                          </>
+                      <td className="p-2">
+                        {item.estado === 'DEBAJA' ? (
+                          <span className="block text-center text-xs text-slate-500 italic">Dado de baja</span>
+                        ) : (
+                          <div className="flex items-center justify-center gap-2">
+                            {canManageLoans && !item.esConsumible && item.estado === 'DISPONIBLE' && (
+                              <button onClick={() => setLoanItem(item)} className="bg-indigo-600 hover:bg-indigo-500 px-3 py-1 rounded text-xs font-semibold">Prestar</button>
+                            )}
+                            {canManageLoans && !item.esConsumible && item.estado === 'PRESTADO' && (
+                              <button onClick={() => handleReturnLoan(item)} className="bg-emerald-600 hover:bg-emerald-500 px-3 py-1 rounded text-xs font-semibold">Devolver</button>
+                            )}
+                            {canManageLoans && item.esConsumible && (
+                              <button onClick={() => setFilamentItem(item)} className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-500 px-3 py-1 rounded text-xs font-semibold">
+                                <Scissors size={12} /> Descontar
+                              </button>
+                            )}
+                            {activeRole === 'USUARIO_GLOBAL' && item.estado === 'DISPONIBLE' && !item.esConsumible && (
+                              <button onClick={() => setRequestItem(item)} className="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-xs font-semibold">Solicitar</button>
+                            )}
+
+                            {activeRole === 'ADMINISTRADOR' && (
+                              <button
+                                onClick={(e) => openRowMenu(e, item)}
+                                aria-label="Más acciones"
+                                className="p-1.5 rounded border border-slate-600 hover:bg-slate-700 text-slate-300"
+                              >
+                                <MoreHorizontal size={16} />
+                              </button>
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -715,44 +973,52 @@ export default function Home() {
         {/* PESTAÑA 2: SOLICITUDES */}
         {activeTab === 'SOLICITUDES' && (
           <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
-            <h3 className="text-lg font-semibold text-amber-300">📌 Registro e Historial de Solicitudes por Escuela</h3>
+            <h3 className="text-lg font-semibold text-amber-300 flex items-center gap-2">
+              <ClipboardList size={20} /> Registro e Historial de Solicitudes por Escuela
+            </h3>
             {solicitudes.length === 0 ? (
               <p className="text-slate-400 text-sm">No hay solicitudes registradas.</p>
             ) : (
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-700 text-slate-400">
-                    <th className="p-2">Equipo</th>
-                    <th className="p-2">Solicitante</th>
-                    <th className="p-2">Escuela Duoc UC</th>
-                    <th className="p-2">Fecha</th>
-                    <th className="p-2">Estado</th>
-                    <th className="p-2 text-center">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {solicitudes.map((sol) => (
-                    <tr key={sol.id} className="border-b border-slate-700/50">
-                      <td className="p-2 font-medium">{sol.itemNombre} ({sol.codigoSerie})</td>
-                      <td className="p-2 text-amber-200 font-bold">{sol.solicitanteNombre}</td>
-                      <td className="p-2 text-blue-300 font-medium">{sol.escuela}</td>
-                      <td className="p-2 text-slate-400">{sol.fecha}</td>
-                      <td className="p-2">
-                        <span className="px-2 py-0.5 text-xs rounded border bg-amber-900/60 text-amber-300 border-amber-700">
-                          {sol.estado}
-                        </span>
-                      </td>
-                      <td className="p-2 text-center space-x-2">
-                        {(activeRole === 'ADMINISTRADOR' || activeRole === 'ALUMNO_LIDER') && sol.estado === 'PENDIENTE' && (
-                          <button onClick={() => handleApproveRequest(sol)} className="bg-emerald-600 px-2 py-1 rounded text-xs font-bold">
-                            Aprobar Préstamo
-                          </button>
-                        )}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-700 text-slate-400">
+                      <th className="p-2">Equipo</th>
+                      <th className="p-2">Solicitante</th>
+                      <th className="p-2">Escuela Duoc UC</th>
+                      <th className="p-2">Fecha</th>
+                      <th className="p-2">Estado</th>
+                      <th className="p-2 text-center">Acciones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {solicitudes.map((sol) => (
+                      <tr key={sol.id} className="border-b border-slate-700/50">
+                        <td className="p-2 font-medium">{sol.itemNombre} ({sol.codigoSerie})</td>
+                        <td className="p-2 text-amber-200 font-bold">{sol.solicitanteNombre}</td>
+                        <td className="p-2 text-blue-300 font-medium">{sol.escuela}</td>
+                        <td className="p-2 text-slate-400">{sol.fecha}</td>
+                        <td className="p-2">
+                          <span className={`px-2 py-0.5 text-xs rounded border ${
+                            sol.estado === 'APROBADA'
+                              ? 'bg-emerald-900/60 text-emerald-300 border-emerald-700'
+                              : 'bg-amber-900/60 text-amber-300 border-amber-700'
+                          }`}>
+                            {sol.estado}
+                          </span>
+                        </td>
+                        <td className="p-2 text-center space-x-2">
+                          {canManageLoans && sol.estado === 'PENDIENTE' && (
+                            <button onClick={() => handleApproveRequest(sol)} className="bg-emerald-600 hover:bg-emerald-500 px-3 py-1 rounded text-xs font-bold">
+                              Aprobar Préstamo
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}
@@ -761,34 +1027,54 @@ export default function Home() {
         {activeTab === 'FILAMENTO' && (
           <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-6">
             <div>
-              <h3 className="text-lg font-semibold text-blue-300">🧵 Descuento Automático en Gramos (g) vs Kilogramos (kg)</h3>
+              <h3 className="text-lg font-semibold text-blue-300 flex items-center gap-2">
+                <Printer size={20} /> Descuento Automático en Gramos (g) vs Kilogramos (kg)
+              </h3>
               <p className="text-xs text-slate-400">Conversión automática: Ingrese en kg, el sistema descuenta en g para una impresión exacta.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {items.filter((i) => i.esConsumible).map((fil) => (
-                <div key={fil.id} className="bg-slate-900 p-4 rounded-xl border border-slate-700 space-y-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-bold text-white">{fil.nombre}</h4>
-                      <p className="text-xs text-slate-400">Código: {fil.codigoSerie}</p>
+              {items.filter((i) => i.esConsumible && i.estado !== 'DEBAJA').map((fil) => {
+                const gramos = fil.cantidadGramos || 0;
+                const minimo = fil.stockMinimoGramos || 1000;
+                const critico = gramos <= minimo;
+                return (
+                  <div key={fil.id} className="bg-slate-900 p-4 rounded-xl border border-slate-700 space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-bold text-white">{fil.nombre}</h4>
+                        <p className="text-xs text-slate-400">Código: {fil.codigoSerie}</p>
+                      </div>
+                      <span className={`text-xl font-black ${critico ? 'text-rose-400' : 'text-amber-400'}`}>
+                        {(gramos / 1000).toFixed(2)} kg
+                      </span>
                     </div>
-                    <span className="text-xl font-black text-amber-400">
-                      {((fil.cantidadGramos || 0) / 1000).toFixed(2)} kg
-                    </span>
+
+                    <div className="space-y-1">
+                      <BarraStock gramos={gramos} minimo={minimo} />
+                      <div className="flex justify-between text-[11px] text-slate-500">
+                        <span>0 kg</span>
+                        <span>Mínimo: {minimo} g</span>
+                        <span>{CAPACIDAD_REF_G / 1000} kg</span>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-400">
+                      Stock exacto: <strong className="text-slate-200">{gramos} g</strong>
+                      {critico && <span className="ml-2 text-rose-400 font-semibold">Stock crítico</span>}
+                    </p>
+
+                    {canManageLoans && (
+                      <button
+                        onClick={() => setFilamentItem(fil)}
+                        className="w-full flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs py-2 rounded"
+                      >
+                        <Scissors size={14} /> Descontar Impresión (Gramos)
+                      </button>
+                    )}
                   </div>
-                  <p className="text-xs text-slate-400">Stock exacto: <strong className="text-slate-200">{fil.cantidadGramos} g</strong></p>
-                  
-                  {(activeRole === 'ADMINISTRADOR' || activeRole === 'ALUMNO_LIDER') && (
-                    <button
-                      onClick={() => setFilamentItem(fil)}
-                      className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs py-2 rounded"
-                    >
-                      ✂️ Descontar Impresión (Gramos)
-                    </button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -796,61 +1082,65 @@ export default function Home() {
         {/* PESTAÑA 4: MANTENIMIENTO OT */}
         {activeTab === 'MANTENIMIENTO' && (
           <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
-            <h3 className="text-lg font-semibold text-amber-300">🛠️ Registro de Mantenimiento Preventivo y Correctivo (OT)</h3>
+            <h3 className="text-lg font-semibold text-amber-300 flex items-center gap-2">
+              <Wrench size={20} /> Registro de Mantenimiento Preventivo y Correctivo (OT)
+            </h3>
             {ordenesTrabajo.length === 0 ? (
               <p className="text-slate-400 text-sm">No hay Órdenes de Trabajo (OT) activas.</p>
             ) : (
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-700 text-slate-400">
-                    <th className="p-2">Código</th>
-                    <th className="p-2">Equipo</th>
-                    <th className="p-2">Tipo OT</th>
-                    <th className="p-2">Responsable</th>
-                    <th className="p-2">Estado OT</th>
-                    <th className="p-2">Diagnóstico</th>
-                    <th className="p-2 text-center">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ordenesTrabajo.map((ot) => (
-                    <tr key={ot.id} className="border-b border-slate-700/50">
-                      <td className="p-2 font-mono text-blue-300 font-bold">{ot.codigoSerie}</td>
-                      <td className="p-2 font-medium">{ot.equipoNombre}</td>
-                      <td className="p-2 font-bold text-amber-300">{ot.tipo}</td>
-                      <td className="p-2 text-slate-300">{ot.responsable}</td>
-                      <td className="p-2">
-                        <select
-                          value={ot.estadoOT}
-                          onChange={(e) => handleUpdateOTState(ot.id, e.target.value as OrdenTrabajo['estadoOT'])}
-                          className={`p-1 rounded text-xs border font-semibold ${
-                            ot.estadoOT === 'Finalizada'
-                              ? 'bg-emerald-900/80 text-emerald-300 border-emerald-700'
-                              : ot.estadoOT === 'En diagnóstico'
-                              ? 'bg-amber-900/80 text-amber-300 border-amber-700'
-                              : 'bg-blue-900/80 text-blue-300 border-blue-700'
-                          }`}
-                        >
-                          <option value="En proceso">En proceso</option>
-                          <option value="En diagnóstico">En diagnóstico</option>
-                          <option value="Finalizada">Finalizada (Completada)</option>
-                        </select>
-                      </td>
-                      <td className="p-2 text-slate-300 text-xs italic">{ot.comentario}</td>
-                      <td className="p-2 text-center">
-                        {ot.estadoOT !== 'Finalizada' && (
-                          <button
-                            onClick={() => handleUpdateOTState(ot.id, 'Finalizada')}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-2 py-1 rounded font-bold"
-                          >
-                            ✅ Marcar Completo
-                          </button>
-                        )}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-700 text-slate-400">
+                      <th className="p-2">Código</th>
+                      <th className="p-2">Equipo</th>
+                      <th className="p-2">Tipo OT</th>
+                      <th className="p-2">Responsable</th>
+                      <th className="p-2">Estado OT</th>
+                      <th className="p-2">Diagnóstico</th>
+                      <th className="p-2 text-center">Acciones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {ordenesTrabajo.map((ot) => (
+                      <tr key={ot.id} className="border-b border-slate-700/50">
+                        <td className="p-2 font-mono text-blue-300 font-bold">{ot.codigoSerie}</td>
+                        <td className="p-2 font-medium">{ot.equipoNombre}</td>
+                        <td className="p-2 font-bold text-amber-300">{ot.tipo}</td>
+                        <td className="p-2 text-slate-300">{ot.responsable}</td>
+                        <td className="p-2">
+                          <select
+                            value={ot.estadoOT}
+                            onChange={(e) => handleUpdateOTState(ot.id, e.target.value as OrdenTrabajo['estadoOT'])}
+                            className={`p-1 rounded text-xs border font-semibold ${
+                              ot.estadoOT === 'Finalizada'
+                                ? 'bg-emerald-900/80 text-emerald-300 border-emerald-700'
+                                : ot.estadoOT === 'En diagnóstico'
+                                ? 'bg-amber-900/80 text-amber-300 border-amber-700'
+                                : 'bg-blue-900/80 text-blue-300 border-blue-700'
+                            }`}
+                          >
+                            <option value="En proceso">En proceso</option>
+                            <option value="En diagnóstico">En diagnóstico</option>
+                            <option value="Finalizada">Finalizada (Completada)</option>
+                          </select>
+                        </td>
+                        <td className="p-2 text-slate-300 text-xs italic">{ot.comentario}</td>
+                        <td className="p-2 text-center">
+                          {ot.estadoOT !== 'Finalizada' && (
+                            <button
+                              onClick={() => handleUpdateOTState(ot.id, 'Finalizada')}
+                              className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-2 py-1 rounded font-bold"
+                            >
+                              <Check size={14} /> Marcar Completo
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}
@@ -858,25 +1148,360 @@ export default function Home() {
         {/* PESTAÑA 5: ALERTAS */}
         {activeTab === 'ALERTAS' && (
           <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
-            <h3 className="text-lg font-semibold text-rose-400">⚠️ Alertas de Stock Crítico</h3>
+            <h3 className="text-lg font-semibold text-rose-400 flex items-center gap-2">
+              <AlertTriangle size={20} /> Alertas de Stock Crítico
+            </h3>
             {filamentosBajos.length === 0 ? (
-              <p className="text-slate-400 text-sm">✅ Todos los consumibles están por encima del stock mínimo.</p>
+              <p className="flex items-center gap-2 text-slate-400 text-sm">
+                <CheckCircle2 size={16} className="text-emerald-400" />
+                Todos los consumibles están por encima del stock mínimo.
+              </p>
             ) : (
               <div className="space-y-3">
                 {filamentosBajos.map((f) => (
-                  <div key={f.id} className="p-4 rounded-lg bg-rose-950/40 border border-rose-800/60 flex justify-between items-center">
-                    <div>
-                      <p className="font-bold text-rose-200">{f.nombre} ({f.codigoSerie})</p>
-                      <p className="text-xs text-slate-400">Stock actual: {f.cantidadGramos} g | Mínimo requerido: {f.stockMinimoGramos} g</p>
+                  <div key={f.id} className="p-4 rounded-lg bg-rose-950/40 border border-rose-800/60 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-rose-200">{f.nombre} ({f.codigoSerie})</p>
+                        <p className="text-xs text-slate-400">Stock actual: {f.cantidadGramos} g | Mínimo requerido: {f.stockMinimoGramos || 1000} g</p>
+                      </div>
+                      <span className="bg-rose-600 text-white text-xs px-2.5 py-1 rounded font-bold">STOCK CRÍTICO</span>
                     </div>
-                    <span className="bg-rose-600 text-white text-xs px-2.5 py-1 rounded font-bold">STOCK CRÍTICO</span>
+                    <BarraStock gramos={f.cantidadGramos || 0} minimo={f.stockMinimoGramos || 1000} />
                   </div>
                 ))}
               </div>
             )}
           </div>
         )}
+
+        {/* PESTAÑA 6: GESTIÓN DE USUARIOS (SOLO ADMINISTRADOR) */}
+        {activeTab === 'USUARIOS' && activeRole === 'ADMINISTRADOR' && (
+          <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-blue-300 flex items-center gap-2">
+                  <Users size={20} /> Administración de Usuarios y Accesos CITT
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">Creación, edición de roles, reseteo de claves y deshabilitación de cuentas.</p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setEditingUsuario(null);
+                  setFormUser({ nombre: '', email: '', rol: 'USUARIO_GLOBAL', escuela: ESCUELAS_DUOC[0] });
+                  setShowUserModal(true);
+                }}
+                className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-3.5 py-2 rounded-lg shadow-lg shadow-blue-600/30"
+              >
+                <Plus size={16} /> Crear usuario
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-700 text-slate-400">
+                    <th className="p-2.5">Nombre / Usuario</th>
+                    <th className="p-2.5">Correo / RUT</th>
+                    <th className="p-2.5">Rol de Sistema</th>
+                    <th className="p-2.5">Escuela</th>
+                    <th className="p-2.5">Estado</th>
+                    <th className="p-2.5 text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usuariosList.map((u) => (
+                    <tr key={u.id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                      <td className="p-2.5 font-bold text-white">{u.nombre}</td>
+                      <td className="p-2.5 font-mono text-xs text-slate-300">{u.email}</td>
+                      <td className="p-2.5">
+                        <span className={`px-2 py-0.5 text-xs rounded border font-semibold ${
+                          u.rol === 'ADMINISTRADOR' ? 'bg-purple-900/60 text-purple-300 border-purple-700' :
+                          u.rol === 'ALUMNO_LIDER' ? 'bg-blue-900/60 text-blue-300 border-blue-700' :
+                          'bg-slate-900 text-slate-300 border-slate-700'
+                        }`}>
+                          {u.rol}
+                        </span>
+                      </td>
+                      <td className="p-2.5 text-xs text-slate-300">{u.escuela}</td>
+                      <td className="p-2.5">
+                        <span className={`px-2 py-0.5 text-xs rounded border font-semibold ${
+                          u.estado === 'ACTIVO' ? 'bg-emerald-900/60 text-emerald-300 border-emerald-700' : 'bg-rose-900/60 text-rose-300 border-rose-700'
+                        }`}>
+                          {u.estado}
+                        </span>
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => handleResetPassword(u)}
+                            title="Resetear contraseña"
+                            className="flex items-center gap-1 bg-amber-900/60 hover:bg-amber-800 border border-amber-700 text-amber-200 text-xs px-2.5 py-1 rounded"
+                          >
+                            <KeyRound size={12} /> Reset Clave
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setEditingUsuario(u);
+                              setFormUser({ nombre: u.nombre, email: u.email, rol: u.rol, escuela: u.escuela });
+                              setShowUserModal(true);
+                            }}
+                            title="Editar usuario"
+                            className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded text-slate-200"
+                          >
+                            <Pencil size={13} />
+                          </button>
+
+                          <button
+                            onClick={() => handleToggleStateUser(u)}
+                            title={u.estado === 'ACTIVO' ? 'Desactivar usuario' : 'Activar usuario'}
+                            className={`p-1.5 rounded ${
+                              u.estado === 'ACTIVO' ? 'bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800' : 'bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-800'
+                            }`}
+                          >
+                            {u.estado === 'ACTIVO' ? <UserX size={13} /> : <UserCheck size={13} />}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </main>
+
+      {/* Menú "⋯" */}
+      {rowMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setRowMenu(null)} />
+          <div
+            className="fixed z-50 w-44 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl py-1"
+            style={{ top: rowMenu.top, left: rowMenu.left }}
+          >
+            <button
+              onClick={() => { setOtItem(rowMenu.item); setRowMenu(null); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-200 hover:bg-slate-700"
+            >
+              <Wrench size={14} /> Crear OT
+            </button>
+            <button
+              onClick={() => { setEditingItem(rowMenu.item); setRowMenu(null); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-200 hover:bg-slate-700"
+            >
+              <Pencil size={14} /> Editar
+            </button>
+            <div className="my-1 border-t border-slate-700" />
+            <button
+              onClick={() => { setBajaItem(rowMenu.item); setRowMenu(null); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-300 hover:bg-rose-950/60"
+            >
+              <Archive size={14} /> Dar de baja
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Modal Usuario (Crear / Editar) */}
+      {showUserModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-100">
+                {editingUsuario ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
+              </h3>
+              <button onClick={() => setShowUserModal(false)} className="text-slate-400 hover:text-slate-200">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveUser} className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Nombre Completo</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Pedro González"
+                  value={formUser.nombre}
+                  onChange={(e) => setFormUser({ ...formUser, nombre: e.target.value })}
+                  className="w-full p-2.5 rounded bg-slate-900 border border-slate-700 text-white text-sm"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Correo Institucional / RUT</label>
+                <input
+                  type="email"
+                  placeholder="usuario@duoc.cl"
+                  value={formUser.email}
+                  onChange={(e) => setFormUser({ ...formUser, email: e.target.value })}
+                  className="w-full p-2.5 rounded bg-slate-900 border border-slate-700 text-white text-sm"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Rol de Acceso</label>
+                <select
+                  value={formUser.rol}
+                  onChange={(e) => setFormUser({ ...formUser, rol: e.target.value as UserRole })}
+                  className="w-full p-2.5 rounded bg-slate-900 border border-slate-700 text-white text-sm"
+                >
+                  <option value="USUARIO_GLOBAL">USUARIO_GLOBAL (Estudiante)</option>
+                  <option value="ALUMNO_LIDER">ALUMNO_LIDER (Operador de Mesón)</option>
+                  <option value="ADMINISTRADOR">ADMINISTRADOR (Acceso Total)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Escuela Asociada</label>
+                <select
+                  value={formUser.escuela}
+                  onChange={(e) => setFormUser({ ...formUser, escuela: e.target.value })}
+                  className="w-full p-2.5 rounded bg-slate-900 border border-slate-700 text-white text-sm"
+                >
+                  {ESCUELAS_DUOC.map((esc) => (
+                    <option key={esc} value={esc}>{esc}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setShowUserModal(false)} className="px-4 py-2 bg-slate-700 rounded text-xs text-slate-300">
+                  Cancelar
+                </button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-xs font-semibold text-white">
+                  {editingUsuario ? 'Guardar Cambios' : 'Crear Usuario'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Nuevo Activo */}
+      {showNewModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-100">Registrar Nuevo Activo o Consumible</h3>
+              <button
+                onClick={() => setShowNewModal(false)}
+                aria-label="Cerrar"
+                className="p-1 rounded hover:bg-slate-700 text-slate-400"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Categoría del Equipo</label>
+                  <select
+                    value={form.categoria}
+                    onChange={(e) => handleCategoryChange(e.target.value)}
+                    className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-sm"
+                  >
+                    {CATEGORIAS.map((c) => (
+                      <option key={c.nombre} value={c.nombre}>
+                        {c.nombre} ({c.prefijo})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Código de Serie (Autogenerado)</label>
+                  <input
+                    type="text"
+                    value={form.codigoSerie}
+                    readOnly
+                    className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-sm font-mono text-blue-300 font-bold"
+                    required
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="text-xs text-slate-400 block mb-1">Nombre del Activo</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Laptop Lenovo / Filamento PLA"
+                    value={form.nombre}
+                    onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                    className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-sm"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Ubicación / Casillero</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Casillero A-1"
+                    value={form.ubicacion}
+                    onChange={(e) => setForm({ ...form, ubicacion: e.target.value })}
+                    className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Estado inicial</label>
+                  <select
+                    value={form.estado}
+                    onChange={(e) => setForm({ ...form, estado: e.target.value as Item['estado'] })}
+                    className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-sm text-white"
+                  >
+                    <option value="DISPONIBLE">DISPONIBLE</option>
+                    <option value="PRESTADO">PRESTADO</option>
+                    <option value="MANTENIMIENTO">MANTENIMIENTO</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="text-xs text-slate-400 block mb-1">Comentario / Nota</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Batería mala"
+                    value={form.descripcion}
+                    onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+                    className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-sm"
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 text-xs text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={form.esConsumible}
+                    onChange={(e) => setForm({ ...form, esConsumible: e.target.checked })}
+                  />
+                  Es consumible (se controla en kg / g)
+                </label>
+
+                {form.esConsumible && (
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">Gramos iniciales (10000 g = 10 kg)</label>
+                    <input
+                      type="number"
+                      value={form.cantidadGramos}
+                      onChange={(e) => setForm({ ...form, cantidadGramos: parseFloat(e.target.value) })}
+                      className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-sm"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button type="button" onClick={() => setShowNewModal(false)} className="px-4 py-2 bg-slate-700 rounded text-xs">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-xs font-semibold">Guardar Activo</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal QR */}
       {qrItem && (
@@ -959,14 +1584,20 @@ export default function Home() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md space-y-4">
             <h3 className="text-xl font-bold text-slate-100">Descontar Filamento Usado</h3>
+            <p className="text-sm text-slate-400">
+              <span className="text-blue-300 font-mono">{filamentItem.codigoSerie}</span> · {filamentItem.nombre}
+            </p>
             <form onSubmit={handleDiscountFilament} className="space-y-4">
-              <input
-                type="number"
-                value={descuentoGramos}
-                onChange={(e) => setDescuentoGramos(parseFloat(e.target.value))}
-                className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-white text-sm"
-                required
-              />
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Gramos a descontar</label>
+                <input
+                  type="number"
+                  value={descuentoGramos}
+                  onChange={(e) => setDescuentoGramos(parseFloat(e.target.value))}
+                  className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-white text-sm"
+                  required
+                />
+              </div>
               <div className="flex justify-end space-x-3">
                 <button type="button" onClick={() => setFilamentItem(null)} className="px-4 py-2 bg-slate-700 rounded text-xs">Cancelar</button>
                 <button type="submit" className="px-4 py-2 bg-indigo-600 rounded text-xs font-semibold">Aplicar Descuento</button>
@@ -997,7 +1628,6 @@ export default function Home() {
                 <option value="DISPONIBLE">DISPONIBLE</option>
                 <option value="PRESTADO">PRESTADO</option>
                 <option value="MANTENIMIENTO">MANTENIMIENTO</option>
-                <option value="DEBAJA">DEBAJA</option>
               </select>
               <div className="flex justify-end space-x-3">
                 <button type="button" onClick={() => setEditingItem(null)} className="px-4 py-2 bg-slate-700 rounded text-xs">Cancelar</button>
@@ -1025,6 +1655,40 @@ export default function Home() {
               <div className="flex justify-end space-x-3">
                 <button type="button" onClick={() => setLoanItem(null)} className="px-4 py-2 bg-slate-700 rounded text-xs">Cancelar</button>
                 <button type="submit" className="px-4 py-2 bg-indigo-600 rounded text-xs font-semibold">Confirmar Préstamo</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Dar de Baja */}
+      {bajaItem && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md space-y-4">
+            <h3 className="text-xl font-bold text-slate-100">Dar de baja activo</h3>
+            <p className="text-sm text-slate-400">
+              <span className="text-blue-300 font-mono">{bajaItem.codigoSerie}</span> · {bajaItem.nombre}
+            </p>
+            <p className="text-xs text-amber-300">
+              El activo no se borra: queda con estado DEBAJA y registrado en el historial.
+            </p>
+            <form onSubmit={handleConfirmBaja} className="space-y-4">
+              <textarea
+                placeholder="Motivo de la baja (ej: dañado, inutilizable)"
+                value={motivoBaja}
+                onChange={(e) => setMotivoBaja(e.target.value)}
+                className="w-full p-2 rounded bg-slate-900 border border-slate-700 text-white text-sm"
+                required
+              />
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => { setBajaItem(null); setMotivoBaja(''); }}
+                  className="px-4 py-2 bg-slate-700 rounded text-xs"
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="px-4 py-2 bg-rose-600 rounded text-xs font-semibold">Confirmar baja</button>
               </div>
             </form>
           </div>

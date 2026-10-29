@@ -23,6 +23,8 @@ let User = class User {
     email;
     passwordHash;
     rol;
+    activo;
+    debeCambiarPassword;
     fechaCreacion;
 };
 exports.User = User;
@@ -46,6 +48,14 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'enum', enum: UserRole, default: UserRole.USUARIO_GLOBAL }),
     __metadata("design:type", String)
 ], User.prototype, "rol", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: true }),
+    __metadata("design:type", Boolean)
+], User.prototype, "activo", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], User.prototype, "debeCambiarPassword", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)

@@ -5,48 +5,55 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
-const user_entity_1 = require("../users/entities/user.entity");
+const jwt_1 = require("@nestjs/jwt");
+const users_service_1 = require("../users/users.service");
 let AuthService = class AuthService {
-    mockUsers = [
-        {
-            email: 'admin@duoc.cl',
-            password: 'admin',
-            nombre: 'Administrador CITT',
-            rol: user_entity_1.UserRole.ADMIN,
-        },
-        {
-            email: 'lider@duoc.cl',
-            password: 'lider',
-            nombre: 'Alumno Líder Pañol',
-            rol: user_entity_1.UserRole.ALUMNO_LIDER,
-        },
-        {
-            email: 'alumno@duoc.cl',
-            password: 'alumno',
-            nombre: 'Estudiante Duoc UC',
-            rol: user_entity_1.UserRole.USUARIO_GLOBAL,
-        },
-    ];
+    usersService;
+    jwtService;
+    constructor(usersService, jwtService) {
+        this.usersService = usersService;
+        this.jwtService = jwtService;
+    }
     async login(email, pass) {
-        const user = this.mockUsers.find((u) => u.email === email && u.password === pass);
+        const user = await this.usersService.validateCredentials(email ?? '', pass ?? '');
         if (!user) {
             throw new common_1.UnauthorizedException('Credenciales inválidas');
         }
+        const payload = {
+            sub: user.id,
+            email: user.email,
+            nombre: user.nombre,
+            rol: user.rol,
+        };
         return {
-            access_token: `jwt-token-citt-${user.rol.toLowerCase()}`,
+            access_token: await this.jwtService.signAsync(payload),
             user: {
+                id: user.id,
                 nombre: user.nombre,
                 email: user.email,
                 rol: user.rol,
+                debeCambiarPassword: user.debeCambiarPassword,
             },
         };
+    }
+    me(userId) {
+        return this.usersService.getPublicById(userId);
+    }
+    async changePassword(userId, actual, nueva) {
+        await this.usersService.changeOwnPassword(userId, actual, nueva);
+        return { message: 'Contraseña actualizada correctamente' };
     }
 };
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
-    (0, common_1.Injectable)()
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [users_service_1.UsersService,
+        jwt_1.JwtService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map
